@@ -63,7 +63,7 @@ object OldRvConverter {
 
   def convertLine(line: String): Option[String] = {
 
-    def lineFailure = { "Failure converting line: " + line; None }
+    def lineFailure = { System.err.println("Failure converting line: " + line); None }
 
     val split = splitPattern.split(line)
 
