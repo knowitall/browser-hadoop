@@ -62,6 +62,11 @@
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
 		<dependency>
+			<groupId>edu.washington.cs.knowitall</groupId>
+			<artifactId>common-scala</artifactId>
+			<version>1.0.1</version>
+		</dependency>
+		<dependency>
 			<groupId>com.github.scopt</groupId>
 			<artifactId>scopt_2.9.1</artifactId>
 			<version>2.0.1</version>
