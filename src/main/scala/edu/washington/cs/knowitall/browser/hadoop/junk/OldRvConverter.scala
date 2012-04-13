@@ -10,7 +10,7 @@ import edu.washington.cs.knowitall.nlp.ChunkedSentence
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 
 import java.io.PrintStream
-
+       
 object OldRvConverter {
 
   val chunkedNlpParser = new OpenNlpChunkedSentenceParser
