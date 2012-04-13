@@ -21,7 +21,8 @@ object OldRvConverter {
     var relCol: Int = -1
     var arg2Col: Int = -1
     var sentCol: Int = -1
-    var urlCol: Int = -1
+    var urlDomCol: Int = -1
+    var urlPathCol: Int = -1
 
     var rangeLength = false
 
@@ -36,7 +37,8 @@ object OldRvConverter {
       arg("rel", "Column of rel range", { str => settings.relCol = str.toInt })
       arg("arg2", "Column of arg2 range", { str => settings.arg2Col = str.toInt })
       arg("sent", "Column of OpenNLP formatted chunked Sentence", { str => settings.sentCol = str.toInt })
-      arg("url", "Column of Source URL", { str => settings.urlCol = str.toInt })
+      arg("url", "Column of Source URL domain", { str => settings.urlDomCol = str.toInt })
+      arg("url", "Column of Source URL path", { str => settings.urlPathCol = str.toInt })
 
       opt("r", "rangeLength", "process ranges as [start, length] rather than [start, end]", { settings.rangeLength = true })
     }
@@ -71,7 +73,7 @@ object OldRvConverter {
 
     val sentence = tryParsingSentence(split(settings.sentCol))
     
-    val sourceUrl = Some(split(settings.urlCol))
+    val sourceUrl = Some(split(settings.urlDomCol)+split(settings.urlPathCol))
 
     if (!sentence.isDefined) return lineFailure
 
