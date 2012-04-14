@@ -9,6 +9,8 @@ import edu.washington.cs.knowitall.nlp.ChunkedSentence
 
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 
+import edu.washington.cs.knowitall.common.Timing._
+
 import java.io.PrintStream
        
 object OldRvConverter {
@@ -23,6 +25,7 @@ object OldRvConverter {
     var sentCol: Int = -1
     var urlDomCol: Int = -1
     var urlPathCol: Int = -1
+    var minSecs: Int = -1
 
     var rangeLength = false
 
@@ -40,6 +43,7 @@ object OldRvConverter {
       arg("urldom", "Column of Source URL domain", { str => settings.urlDomCol = str.toInt })
       arg("urlsrc", "Column of Source URL path", { str => settings.urlPathCol = str.toInt })
 
+      opt("m", "minTime", "wait at least _ seconds before exiting", { str => settings.minSecs = str.toInt })
       opt("r", "rangeLength", "process ranges as [start, length] rather than [start, end]", { settings.rangeLength = true })
     }
 
@@ -50,13 +54,21 @@ object OldRvConverter {
 
   def run: Unit = {
 
-    val input = Source.fromInputStream(System.in)
+    val timeToRun = time {
+      val input = Source.fromInputStream(System.in)
 
-    val output = System.out
+      val output = System.out
 
-    input.getLines.flatMap(convertLine(_)).foreach(output.println(_))
+      input.getLines.flatMap(convertLine(_)).foreach(output.println(_))
 
-    output.flush
+      output.flush
+    }
+    
+   val secs = timeToRun / Seconds.divisor
+   val wait = settings.minSecs - secs
+   
+   if (wait > 0) Thread.sleep(wait)
+   
   }
 
   private val splitPattern = "\t".r
