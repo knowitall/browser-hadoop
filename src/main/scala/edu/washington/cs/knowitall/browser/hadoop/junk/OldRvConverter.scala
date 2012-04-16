@@ -40,8 +40,8 @@ object OldRvConverter {
       arg("rel", "Column of rel range", { str => settings.relCol = str.toInt })
       arg("arg2", "Column of arg2 range", { str => settings.arg2Col = str.toInt })
       arg("sent", "Column of OpenNLP formatted chunked Sentence", { str => settings.sentCol = str.toInt })
-      arg("url", "Column of Source URL domain", { str => settings.urlDomCol = str.toInt })
-      arg("url", "Column of Source URL path", { str => settings.urlPathCol = str.toInt })
+      arg("urldom", "Column of Source URL domain", { str => settings.urlDomCol = str.toInt })
+      arg("urlsrc", "Column of Source URL path", { str => settings.urlPathCol = str.toInt })
 
       opt("m", "minTime", "wait at least _ seconds before exiting", { str => settings.minSecs = str.toInt })
       opt("r", "rangeLength", "process ranges as [start, length] rather than [start, end]", { settings.rangeLength = true })
