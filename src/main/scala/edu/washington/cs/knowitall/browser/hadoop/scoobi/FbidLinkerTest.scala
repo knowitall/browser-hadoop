@@ -10,46 +10,39 @@ package edu.washington.cs.knowitall.browser.hadoop.scoobi
   
   import java.io.File
   import java.io.FileWriter
-
+  
+  import scala.collection.JavaConversions._
+  
+  import edu.washington.cs.knowitall.browser.hadoop.entity.OneTranslation
+  
 object FbidLinkerTest {
 
+  def listWrapper(inList : java.util.List[String]): Iterable[String] = {
+    
+    inList.toIterable
+  }
+  
   def main(args: Array[String]) = withHadoopArgs(args) { a =>
 
-    val (inputPath, outputPath) =
-      if (a.length == 0) {
-        if (!new File("output-dir").mkdir) {
-          sys.error("Could not make output-dir for results. Perhaps it already exists (and you should delete/rename the old one)")
-        }
+    val trans = new OneTranslation()
+    
+    val (inputPath, outputPath) = (a(0), a(1))
 
-        val fileName = "output-dir/all-words.txt"
-
-        // generate 5000 random words (with high collisions) and save at fileName
-        generateWords(fileName, 5000)
-
-        (fileName, "output-dir")
-
-      } else if (a.length == 2) {
-        (a(0), a(1))
-      } else {
-        sys.error("Expecting input and output path, or no arguments at all.")
-      }
-
-    // Firstly we load up all the (new-line-separated) words into a DList
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
 
-    // What we want to do, is record the frequency of words. So we'll convert it to a key-value
-    // pairs where the key is the word, and the value the frequency (which to start with is 1)
-    val keyValuePair: DList[(String, Int)] = lines flatMap { _.split(" ") } map { w => (w, 1) }
+    // map 
+    val keyValuePair: DList[(String, Iterable[String])] = lines.flatMap { line => 
+      
+      line.split("\t") match {
+        case Array(sIdx, arg1, rel, arg2, _*) => Some(arg1, listWrapper(trans.linkToFbids(arg1)))
+        case _ => None
+      }
+      
+    }
 
-    // Now let's group all words that compare the same
-    val grouped: DList[(String, Iterable[Int])] = keyValuePair.groupByKey
-    // Now we have it in the form (Word, ['1', '1', '1', 1' etc.])
+    //val combined: DList[(String, Int)] = grouped.combine((_+_))
 
-    // So what we want to do, is combine all the numbers into a single value (the frequency)
-    val combined: DList[(String, Int)] = grouped.combine((_+_))
-
-    // We can evaluate this, and write it to a text file
-    DList.persist(TextOutput.toTextFile(combined, outputPath + "/word-results"));
+    DList.persist(TextOutput.toTextFile(keyValuePair, outputPath + "/test-results"));
   }
 
   /* Write 'count' random words to the file 'filename', with a high amount of collisions */
