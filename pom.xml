@@ -87,7 +87,7 @@
 		<dependency>
 			<groupId>com.nicta</groupId>
 			<artifactId>scoobi_2.9.1</artifactId>
-			<version>0.4.0-SNAPSHOT</version>
+			<version>0.3.0</version>
 		</dependency>
 		<dependency>
 			<groupId>com.github.scopt</groupId>
@@ -176,6 +176,17 @@
 					</execution>
 				</executions>
 			</plugin>
+			<plugin>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<configuration>
+					<archive>
+						<manifest>
+							<mainClass>edu.washington.cs.knowitall.browser.hadoop.scoobi.FbidLinkerTest</mainClass>
+						</manifest>
+					</archive>
+				</configuration>
+			</plugin>
+
 		</plugins>
 		<pluginManagement>
 			<plugins>
