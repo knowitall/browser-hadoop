@@ -12,7 +12,7 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
-	<name>Extraction Browser 2.0 Hadoop-related code</name>
+	<name>Extraction Browser 2.0 Hadoop Code</name>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -20,14 +20,6 @@
 
 
 	<repositories>
-		<repository>
-			<id>Cloudera Maven Repository</id>
-			<url>https://repository.cloudera.com/content/repositories/releases/</url>
-		</repository>
-		<repository>
-			<id>Packaged Avro</id>
-			<url>http://nicta.github.com/scoobi/releases/</url>
-		</repository>
 		<repository>
 			<id>knowitall</id>
 			<url>http://knowitall.cs.washington.edu/maven2</url>
@@ -37,13 +29,21 @@
 			<url>http://knowitall.cs.washington.edu/maven2-snapshot</url>
 		</repository>
 		<repository>
+			<id>kos</id>
+			<url>http://opensource.kantega.no/nexus/content/groups/public/</url>
+		</repository>
+		<repository>
 			<id>scala-tools.org</id>
 			<name>Scala-tools Maven2 Repository</name>
 			<url>http://scala-tools.org/repo-releases</url>
 		</repository>
 		<repository>
-			<id>kos</id>
-			<url>http://opensource.kantega.no/nexus/content/groups/public/</url>
+			<id>Cloudera Maven Repository</id>
+			<url>https://repository.cloudera.com/content/repositories/releases/</url>
+		</repository>
+		<repository>
+			<id>Packaged Avro</id>
+			<url>http://nicta.github.com/scoobi/releases/</url>
 		</repository>
 	</repositories>
 	<pluginRepositories>
@@ -66,6 +66,11 @@
 		</dependency>
 		<dependency>
 			<groupId>edu.washington.cs.knowitall</groupId>
+			<artifactId>common-scala</artifactId>
+			<version>1.0.1</version>
+		</dependency>
+		<dependency>
+			<groupId>edu.washington.cs.knowitall</groupId>
 			<artifactId>browserplus</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
@@ -75,20 +80,21 @@
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
 		<dependency>
-			<groupId>edu.washington.cs.knowitall</groupId>
-			<artifactId>common-scala</artifactId>
-			<version>1.0.1</version>
-		</dependency>
-		<dependency>
-			<groupId>com.github.scopt</groupId>
-			<artifactId>scopt_2.9.1</artifactId>
-			<version>2.0.1</version>
+			<groupId>org.scala-lang</groupId>
+			<artifactId>scala-library</artifactId>
+			<version>2.9.1</version>
 		</dependency>
 		<dependency>
 			<groupId>com.nicta</groupId>
 			<artifactId>scoobi_2.9.1</artifactId>
 			<version>0.4.0-SNAPSHOT</version>
 		</dependency>
+		<dependency>
+			<groupId>com.github.scopt</groupId>
+			<artifactId>scopt_2.9.1</artifactId>
+			<version>1.1.2</version>
+		</dependency>
+
 		<dependency>
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
@@ -119,9 +125,30 @@
 	<build>
 		<plugins>
 			<plugin>
+				<groupId>org.scala-tools</groupId>
+				<artifactId>maven-scala-plugin</artifactId>
+				<executions>
+					<execution>
+						<goals>
+							<goal>compile</goal>
+							<goal>testCompile</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<args>
+						<arg>-deprecation</arg>
+						<arg>-unchecked</arg>
+					</args>
+					<jvmArgs>
+						<jvmArg>-Xms128m</jvmArg>
+						<jvmArg>-Xmx1024m</jvmArg>
+					</jvmArgs>
+				</configuration>
+			</plugin>
+			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>build-helper-maven-plugin</artifactId>
-				<version>1.7</version>
 				<executions>
 					<execution>
 						<id>add-source</id>
@@ -149,33 +176,56 @@
 					</execution>
 				</executions>
 			</plugin>
-			<plugin>
-				<groupId>org.scala-tools</groupId>
-				<artifactId>maven-scala-plugin</artifactId>
-				<executions>
-					<execution>
-						<id>compile</id>
-						<goals>
-							<goal>compile</goal>
-						</goals>
-						<phase>compile</phase>
-					</execution>
-					<execution>
-						<id>test-compile</id>
-						<goals>
-							<goal>testCompile</goal>
-						</goals>
-						<phase>test-compile</phase>
-					</execution>
-					<execution>
-						<phase>process-resources</phase>
-						<goals>
-							<goal>compile</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
 		</plugins>
+		<pluginManagement>
+			<plugins>
+				<!--This plugin's configuration is used to store Eclipse m2e settings 
+					only. It has no influence on the Maven build itself. -->
+				<plugin>
+					<groupId>org.eclipse.m2e</groupId>
+					<artifactId>lifecycle-mapping</artifactId>
+					<version>1.0.0</version>
+					<configuration>
+						<lifecycleMappingMetadata>
+							<pluginExecutions>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>org.scala-tools</groupId>
+										<artifactId>
+											maven-scala-plugin
+										</artifactId>
+										<versionRange>[2.15.2,)</versionRange>
+										<goals>
+											<goal>testCompile</goal>
+											<goal>compile</goal>
+										</goals>
+									</pluginExecutionFilter>
+									<action>
+										<ignore />
+									</action>
+								</pluginExecution>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>org.codehaus.mojo</groupId>
+										<artifactId>
+											build-helper-maven-plugin
+										</artifactId>
+										<versionRange>[1.5,)</versionRange>
+										<goals>
+											<goal>add-source</goal>
+											<goal>add-test-source</goal>
+										</goals>
+									</pluginExecutionFilter>
+									<action>
+										<ignore />
+									</action>
+								</pluginExecution>
+							</pluginExecutions>
+						</lifecycleMappingMetadata>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
 	</build>
 
 </project>
