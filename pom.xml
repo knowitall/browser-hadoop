@@ -21,6 +21,14 @@
 
 	<repositories>
 		<repository>
+			<id>Cloudera Maven Repository</id>
+			<url>https://repository.cloudera.com/content/repositories/releases/</url>
+		</repository>
+		<repository>
+			<id>Packaged Avro</id>
+			<url>http://nicta.github.com/scoobi/releases/</url>
+		</repository>
+		<repository>
 			<id>knowitall</id>
 			<url>http://knowitall.cs.washington.edu/maven2</url>
 		</repository>
@@ -63,6 +71,11 @@
 		</dependency>
 		<dependency>
 			<groupId>edu.washington.cs.knowitall</groupId>
+			<artifactId>browser-entitylinker</artifactId>
+			<version>0.0.1-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>edu.washington.cs.knowitall</groupId>
 			<artifactId>common-scala</artifactId>
 			<version>1.0.1</version>
 		</dependency>
@@ -70,6 +83,11 @@
 			<groupId>com.github.scopt</groupId>
 			<artifactId>scopt_2.9.1</artifactId>
 			<version>2.0.1</version>
+		</dependency>
+		<dependency>
+			<groupId>com.nicta</groupId>
+			<artifactId>scoobi_2.9.1</artifactId>
+			<version>0.3.0</version>
 		</dependency>
 		<dependency>
 			<groupId>log4j</groupId>
@@ -99,8 +117,39 @@
 	</dependencies>
 
 	<build>
-		<sourceDirectory>src/main/scala</sourceDirectory>
-		<testSourceDirectory>src/test/scala</testSourceDirectory>
+		<plugins>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>build-helper-maven-plugin</artifactId>
+				<version>1.7</version>
+				<executions>
+					<execution>
+						<id>add-source</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>add-source</goal>
+						</goals>
+						<configuration>
+							<sources>
+								<source>src/main/scala</source>
+							</sources>
+						</configuration>
+					</execution>
+					<execution>
+						<id>add-test-source</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>add-test-source</goal>
+						</goals>
+						<configuration>
+							<sources>
+								<source>src/test/scala</source>
+							</sources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
 	</build>
 
 </project>
