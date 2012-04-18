@@ -11,7 +11,7 @@ package edu.washington.cs.knowitall.browser.hadoop.scoobi
   import java.io.File
   import java.io.FileWriter
 
-class FbidLinkerTest {
+object FbidLinkerTest {
 
   def main(args: Array[String]) = withHadoopArgs(args) { a =>
 
