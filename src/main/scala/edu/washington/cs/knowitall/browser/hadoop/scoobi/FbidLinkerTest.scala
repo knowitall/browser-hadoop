@@ -43,37 +43,5 @@ object FbidLinkerTest {
     //val combined: DList[(String, Int)] = grouped.combine((_+_))
 
     DList.persist(TextOutput.toTextFile(keyValuePair, outputPath + "/test-results"));
-  }
-
-  /* Write 'count' random words to the file 'filename', with a high amount of collisions */
-  private def generateWords(filename: String, count: Int) {
-    val fstream = new FileWriter(filename)
-    val r = new scala.util.Random()
-
-    // we will start off by generating count/10 different "words"
-    val words = new Array[String](count / 10)
-
-    (1 to words.length) foreach {
-      v => words.update(v-1, randomWord())
-    }
-
-    // and now we will pick 'count' of them to write to file
-    (1 to count) foreach {
-      _ => fstream write ( words(r.nextInt(words.length)) )
-    }
-
-    fstream.close()
-
-    // function to make a 5 letter random "word"
-    def randomWord() : String = {
-      val wordLength = 5;
-      val sb = new StringBuilder(wordLength + 1)
-      (1 to wordLength) foreach {
-        _ => sb.append(('A' + r.nextInt('Z' - 'A')).asInstanceOf[Char])
-      }
-      sb append('\n')
-      sb toString
-    }
-  }
-  
+  }  
 }
