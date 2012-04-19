@@ -13,7 +13,7 @@ package edu.washington.cs.knowitall.browser.hadoop.scoobi
   
   import scala.collection.JavaConversions._
   
-  import edu.washington.cs.knowitall.browser.hadoop.entity.OneTranslation
+  import edu.washington.cs.knowitall.browser.hadoop.entity.TopCandidatesFinder
   
 object FbidLinkerTest {
 
@@ -24,7 +24,7 @@ object FbidLinkerTest {
   
   def main(args: Array[String]) = withHadoopArgs(args) { a =>
 
-    val trans = new OneTranslation()
+    val trans = new TopCandidatesFinder()
     
     val (inputPath, outputPath) = (a(0), a(1))
 
