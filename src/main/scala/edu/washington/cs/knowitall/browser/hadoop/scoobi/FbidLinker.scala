@@ -15,13 +15,17 @@ package edu.washington.cs.knowitall.browser.hadoop.scoobi
   
   import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
   import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
+  import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
   import edu.washington.cs.knowitall.browser.hadoop.entity.TopCandidatesFinder
   import edu.washington.cs.knowitall.browser.hadoop.entity.EntityLinker
+  import edu.washington.cs.knowitall.browser.hadoop.entity.Pair
+  
+  
   
 class FbidLinker(val el: EntityLinker) {
 
   case class RVTuple(arg1: String, rel: String, arg2: String) {
-    def toString = "%s, %s, %s".format(arg1, rel, arg2)
+    override def toString = "%s, %s, %s".format(arg1, rel, arg2)
   }
   
   def listWrapper(inList : java.util.List[String]): Iterable[String] = {
@@ -31,7 +35,7 @@ class FbidLinker(val el: EntityLinker) {
   
   // returns an (arg1, rel, arg2) tuple of normalized string tokens
   def getNormalizedKey(extr: ReVerbExtraction): RVTuple = {
-    RVTuple("edison", "invent", "internet")
+    RVTuple("", "", "")
   }
   
   def getKeyValuePair(line: String): Option[(String, String)] = {
@@ -44,6 +48,17 @@ class FbidLinker(val el: EntityLinker) {
       }
   }
   
+  def getEntity(arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[(String, String)] = {
+    
+    
+    
+    var argEntity: Option[(String, String)] = None
+    
+    val tryEL = el.getBestFbidFromSources(arg, sources)
+    if (tryEL != null) argEntity = Some((tryEL.one, tryEL.two))
+    argEntity
+  }
+  
   def processGroup(key: String, rawExtrs: Iterable[String]): Option[ExtractionGroup[ReVerbExtraction]] = {
     
     def failure(msg: String = "") = {
@@ -54,31 +69,61 @@ class FbidLinker(val el: EntityLinker) {
     
     val extrs = rawExtrs.flatMap(line => ReVerbExtraction.fromTabDelimited(line.split("\t"))._1)
     
-    val rvtuple = getNormalizedKey(extrs.head)
+    val head = extrs.head
     
-    if (rvtuple.toString.equals(key)) return failure("Key Mismatch: "+rvtuple.toString+" != "+key)
-      
-    val arg1Entity = el.linkAndStuff()
+    val origTuple = RVTuple(head.a1t, head.rt, head.a2t)
+    val normTuple = getNormalizedKey(head)
     
+    if (normTuple.toString.equals(key)) return failure("Key Mismatch: "+normTuple.toString+" != "+key)
     
-    None
+    val sources = extrs.map(e => e.source.getSentence().getTokensAsString()).toSeq
+    
+    val arg1Entity = getEntity(head.arg1Tokens, head, sources).map(_._1)
+    val arg2Entity = getEntity(head.arg2Tokens, head, sources).map(_._1)
+    
+    val instances = extrs.map((_, "TeST", None))
+    
+    val newGroup = new ExtractionGroup(
+    		normTuple.arg1,
+    		normTuple.rel,
+    		normTuple.arg2,
+    		arg1Entity,
+    		arg2Entity,
+    		None,
+    		None,
+    		instances
+    )
+    
+   Some(newGroup)
   }
   
-  def main(args: Array[String]) = withHadoopArgs(args) { a =>
-
-    val trans = new TopCandidatesFinder()
+  
+  
     
+  
+}
+
+object FbidLinker {
+    
+    def main(args: Array[String]) = withHadoopArgs(args) { a =>
+    
+    val flink = new FbidLinker(new EntityLinker())
+      
     val (inputPath, outputPath) = (a(0), a(1))
 
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
 
     // first we need to define what will be our key. We strip only articles - everything else just gets normalized... 
     // normalized by something that takes POS tags, so it performs best.
-    val keyValuePair: DList[(String, String)] = lines.flatMap { line => getKeyValuePair(line) }
+    val keyValuePair: DList[(String, String)] = lines.flatMap { line => flink.getKeyValuePair(line) }
     
-    val groupedByKey = keyValuePair.groupByKey
+    val groups = keyValuePair.groupByKey.flatMap{ case (key, sources) => 
+    	flink.processGroup(key, sources) match {
+    	  case Some(group) => ReVerbExtractionGroup.toTabDelimited(group)
+    	  case None => None
+    	}
+    }
     
-
-    DList.persist(TextOutput.toTextFile(keyValuePair, outputPath + "/test-results"));
-  }  
+    DList.persist(TextOutput.toTextFile(groups, outputPath + "/test-results"));
+  }
 }
