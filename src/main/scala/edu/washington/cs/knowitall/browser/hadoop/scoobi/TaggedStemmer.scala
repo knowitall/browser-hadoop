@@ -41,49 +41,28 @@ class TaggedStemmer(val _lexer: Morpha) {
             word_norm = _lexer.next()
             // String tag_norm= _lexer.next();
             returnVal = word_norm;
-        } catch (Throwable e) {
-            returnVal = word;
+        } catch {
+          case t: Throwable => returnVal = word
         } 
         
-        if (returnVal == null) returnVal = word;
+        if (returnVal == null) returnVal = word
         
         // Morpha doesn't properly singularize a plural proper noun.
         if (oldTag.equalsIgnoreCase("NNPS")) {
         	if (returnVal.endsWith("es") && returnVal.length() > 2) {
-        		returnVal = returnVal.substring(0, returnVal.length()-2);
+        		returnVal = returnVal.substring(0, returnVal.length()-2)
         	}
         	else if (returnVal.endsWith("s")) {
-        		returnVal = returnVal.substring(0, returnVal.length()-1);
+        		returnVal = returnVal.substring(0, returnVal.length()-1)
         	}
         }
         
         return returnVal;
     }
 
-    private boolean isPunct(String tag) {
+    def isPunct(tag: String): Boolean = {
         if (Character.isLetter(tag.charAt(0)))
-            return false;
-        return true;
+            return false
+        return true
     }
-
-    // normalizes, stripping only DT, ADJ, and ADV.
-	public String[] stemReVerbRelation(List<String> tokens, List<String> postags) {
-		
-		String[] stemmed = new String[tokens.size()];
-        for (int i = 0; i < tokens.size(); ++i) {
-            String token = tokens.get(i).toLowerCase();
-            String tag = postags.get(i);
-            String temp = "";
-            if (tag.equalsIgnoreCase("DT")) continue;
-            else if (tag.startsWith("RB") || tag.startsWith("JJ")) {
-            	temp = tag;
-            }
-            else {
-            	temp = stem(token, tag, false);
-            }
-            stemmed[i] = temp.trim();
-        }
-        return stemmed;
-	}
-
 }

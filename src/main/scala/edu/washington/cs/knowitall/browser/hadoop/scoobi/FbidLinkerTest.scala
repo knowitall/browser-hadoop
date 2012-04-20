@@ -13,7 +13,6 @@ package edu.washington.cs.knowitall.browser.hadoop.scoobi
   
   import scala.collection.JavaConversions._
   
-  import edu.washington.cs.knowitall.browser.hadoop.entity.TopCandidatesFinder
   
 object FbidLinkerTest {
 
