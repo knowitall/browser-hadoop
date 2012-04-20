@@ -1,0 +1,48 @@
+package edu.washington.cs.knowitall.browser.hadoop.scoobi
+
+  import com.nicta.scoobi.Scoobi._
+  import com.nicta.scoobi.DList._
+  import com.nicta.scoobi.DList
+  import com.nicta.scoobi.io.text.TextInput._
+  import com.nicta.scoobi.io.text.TextInput
+  import com.nicta.scoobi.io.text.TextOutput._
+  import com.nicta.scoobi.io.text.TextOutput
+  
+  import java.io.File
+  import java.io.FileWriter
+  
+  import scala.collection.JavaConversions._
+  
+  import edu.washington.cs.knowitall.browser.hadoop.entity.TopCandidatesFinder
+  
+object FbidLinker {
+
+  def listWrapper(inList : java.util.List[String]): Iterable[String] = {
+    
+    inList.toIterable
+  }
+  
+  def main(args: Array[String]) = withHadoopArgs(args) { a =>
+
+    val trans = new TopCandidatesFinder()
+    
+    val (inputPath, outputPath) = (a(0), a(1))
+
+    val lines: DList[String] = TextInput.fromTextFile(inputPath)
+
+    // first we need to define what will be our key. We strip only articles - everything else just gets normalized... 
+    // normalized by something that takes POS tags, so it performs best.
+    val keyValuePair: DList[(String, Iterable[String])] = lines.flatMap { line => 
+      
+      line.split("\t") match {
+        case Array(sIdx, arg1, rel, arg2, _*) => Some(arg1, listWrapper(trans.linkToFbids(arg1)))
+        case _ => None
+      }
+      
+    }
+
+    //val combined: DList[(String, Int)] = grouped.combine((_+_))
+
+    DList.persist(TextOutput.toTextFile(keyValuePair, outputPath + "/test-results"));
+  }  
+}
