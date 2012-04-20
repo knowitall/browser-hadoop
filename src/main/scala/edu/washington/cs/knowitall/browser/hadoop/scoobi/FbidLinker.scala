@@ -75,7 +75,7 @@ class FbidLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
     val origTuple = RVTuple(head.a1t, head.rt, head.a2t)
     val normTuple = getNormalizedKey(head)
     
-    if (normTuple.toString.equals(key)) return failure("Key Mismatch: "+normTuple.toString+" != "+key)
+    if (!normTuple.toString.equals(key)) return failure("Key Mismatch: "+normTuple.toString+" != "+key)
     
     val sources = extrs.map(e => e.source.getSentence().getTokensAsString()).toSeq
     
