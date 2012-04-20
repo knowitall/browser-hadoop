@@ -11,6 +11,8 @@ object TaggedStemmer {
                 "rarely", "hardly", "never", "most", "least", "few", "some",
                 "many", "none", "ought", "would", "could", "should")
   val ignorableNounTags = Set("WP", "EX", "SYM")
+  
+  def getInstance = new TaggedStemmer(new Morpha(System.in))
 }
 
 class TaggedStemmer(val _lexer: Morpha) {
@@ -26,6 +28,9 @@ class TaggedStemmer(val _lexer: Morpha) {
     }
 
 
+    def stemAll(pairs: Iterable[(String, String)]): Iterable[String] = {
+      pairs.map(p=>stem(p._1, p._2))
+    }
 
     def stem(word: String, oldTag: String): String = {
 

@@ -20,22 +20,23 @@ package edu.washington.cs.knowitall.browser.hadoop.scoobi
   import edu.washington.cs.knowitall.browser.hadoop.entity.EntityLinker
   import edu.washington.cs.knowitall.browser.hadoop.entity.Pair
   
+  import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
   
   
-class FbidLinker(val el: EntityLinker) {
+  
+class FbidLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
 
   case class RVTuple(arg1: String, rel: String, arg2: String) {
     override def toString = "%s, %s, %s".format(arg1, rel, arg2)
   }
   
-  def listWrapper(inList : java.util.List[String]): Iterable[String] = {
-    
-    inList.toIterable
-  }
-  
   // returns an (arg1, rel, arg2) tuple of normalized string tokens
   def getNormalizedKey(extr: ReVerbExtraction): RVTuple = {
-    RVTuple("", "", "")
+    def pairs(arg: ChunkedExtraction) = arg.getTokens.zip(arg.getPosTags)
+    val arg1Norm = stemmer.stemAll(pairs(extr.source.getArgument1)).mkString(" ")
+    val relNorm = stemmer.stemAll(pairs(extr.source.getRelation)).mkString(" ")
+    val arg2Norm = stemmer.stemAll(pairs(extr.source.getArgument2)).mkString(" ")
+    RVTuple(arg1Norm, relNorm, arg2Norm)
   }
   
   def getKeyValuePair(line: String): Option[(String, String)] = {
@@ -107,7 +108,7 @@ object FbidLinker {
     
     def main(args: Array[String]) = withHadoopArgs(args) { a =>
     
-    val flink = new FbidLinker(new EntityLinker())
+    val flink = new FbidLinker(new EntityLinker(), TaggedStemmer.getInstance)
       
     val (inputPath, outputPath) = (a(0), a(1))
 
