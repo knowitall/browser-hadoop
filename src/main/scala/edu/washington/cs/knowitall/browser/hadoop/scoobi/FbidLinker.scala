@@ -13,6 +13,7 @@ import java.io.FileWriter
 
 import scala.util.Random
 import scala.collection.JavaConversions._
+import scala.collection.mutable
 
 import edu.washington.cs.knowitall.common.Timing._
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
@@ -109,6 +110,8 @@ class FbidLinker(val stemmer: TaggedStemmer) {
 
 object FbidLinker {
 
+  val linkerCache = new mutable.HashMap[Thread, EntityLinker]
+  
   def main(args: Array[String]) = withHadoopArgs(args) { a =>
 
     val flink = new FbidLinker(TaggedStemmer.getInstance)
@@ -123,7 +126,8 @@ object FbidLinker {
 
     val groups = keyValuePair.groupByKey.flatMap {
       case (key, sources) =>
-        val el = new EntityLinker
+        //val el = new EntityLinker
+        val el = linkerCache.getOrElseUpdate(Thread.currentThread(), new EntityLinker())
         val (t, result) = time {
           flink.processGroup(el, key, sources) match {
             case Some(group) => Some(ReVerbExtractionGroup.toTabDelimited(group))
