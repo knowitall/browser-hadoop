@@ -17,6 +17,7 @@ import scala.collection.mutable
 
 import edu.washington.cs.knowitall.common.Timing._
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
+import edu.washington.cs.knowitall.browser.extraction.ArgEntity
 import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.browser.hadoop.entity.TopCandidatesFinder
@@ -57,13 +58,13 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
     }
   }
 
-  def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[(String, String)] = {
+  def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[ArgEntity] = {
 
        
-    var argEntity: Option[(String, String)] = None
+    var argEntity: Option[ArgEntity] = None
 
     val tryEL = el.getBestFbidFromSources(arg, sources)
-    if (tryEL != null) argEntity = Some((tryEL.one, tryEL.two))
+    if (tryEL != null) argEntity = Some(ArgEntity(tryEL.one, tryEL.two))
     argEntity
   }
 
@@ -87,13 +88,13 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
     val sources = extrs.map(e => e.source.getSentence().getTokensAsString()).toSeq
 
     val arg1Entity = if (head.source.getArgument1().getPosTags().exists(_.startsWith("NNP"))) {
-      getEntity(el, head.arg1Tokens, head, sources).map(_._1)
+      getEntity(el, head.arg1Tokens, head, sources)
     } else {
       None
     }
     
     val arg2Entity = if (head.source.getArgument2().getPosTags().exists(_.startsWith("NNP"))) {
-      getEntity(el, head.arg2Tokens, head, sources).map(_._1)
+      getEntity(el, head.arg2Tokens, head, sources)
     } else {
       None
     }
@@ -106,8 +107,8 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
       normTuple.arg2,
       arg1Entity,
       arg2Entity,
-      None,
-      None,
+      Seq.empty[ArgEntity],
+      Seq.empty[ArgEntity],
       instances)
 
     Some(newGroup)
