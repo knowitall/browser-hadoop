@@ -24,7 +24,7 @@ package edu.washington.cs.knowitall.browser.hadoop.scoobi
   
   
   
-class FbidLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
+class FbidLinker(val stemmer: TaggedStemmer) {
 
   case class RVTuple(arg1: String, rel: String, arg2: String) {
     override def toString = "%s, %s, %s".format(arg1, rel, arg2)
@@ -49,7 +49,7 @@ class FbidLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
       }
   }
   
-  def getEntity(arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[(String, String)] = {
+  def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[(String, String)] = {
     
     
     
@@ -60,7 +60,7 @@ class FbidLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
     argEntity
   }
   
-  def processGroup(key: String, rawExtrs: Iterable[String]): Option[ExtractionGroup[ReVerbExtraction]] = {
+  def processGroup(el: EntityLinker, key: String, rawExtrs: Iterable[String]): Option[ExtractionGroup[ReVerbExtraction]] = {
     
     def failure(msg: String = "") = {
       System.err.println("Error processing in processGroup: "+msg+", key: "+key);
@@ -79,8 +79,8 @@ class FbidLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
     
     val sources = extrs.map(e => e.source.getSentence().getTokensAsString()).toSeq
     
-    val arg1Entity = getEntity(head.arg1Tokens, head, sources).map(_._1)
-    val arg2Entity = getEntity(head.arg2Tokens, head, sources).map(_._1)
+    val arg1Entity = getEntity(el, head.arg1Tokens, head, sources).map(_._1)
+    val arg2Entity = getEntity(el, head.arg2Tokens, head, sources).map(_._1)
     
     val instances = extrs.map((_, "TeST", None))
     
@@ -108,7 +108,7 @@ object FbidLinker {
     
     def main(args: Array[String]) = withHadoopArgs(args) { a =>
     
-    val flink = new FbidLinker(new EntityLinker(), TaggedStemmer.getInstance)
+    val flink = new FbidLinker(TaggedStemmer.getInstance)
       
     val (inputPath, outputPath) = (a(0), a(1))
 
@@ -119,7 +119,8 @@ object FbidLinker {
     val keyValuePair: DList[(String, String)] = lines.flatMap { line => flink.getKeyValuePair(line) }
     
     val groups = keyValuePair.groupByKey.flatMap{ case (key, sources) => 
-    	flink.processGroup(key, sources) match {
+        val el = new EntityLinker
+    	flink.processGroup(el, key, sources) match {
     	  case Some(group) => ReVerbExtractionGroup.toTabDelimited(group)
     	  case None => None
     	}
