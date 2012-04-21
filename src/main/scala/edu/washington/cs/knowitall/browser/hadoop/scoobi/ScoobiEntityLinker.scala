@@ -30,14 +30,21 @@ class FbidLinker(val stemmer: TaggedStemmer) {
   case class RVTuple(arg1: String, rel: String, arg2: String) {
     override def toString = "%s, %s, %s".format(arg1, rel, arg2)
   }
-
+  
   // returns an (arg1, rel, arg2) tuple of normalized string tokens
   def getNormalizedKey(extr: ReVerbExtraction): RVTuple = {
-    def pairs(arg: ChunkedExtraction) = arg.getTokens.zip(arg.getPosTags)
-    val arg1Norm = stemmer.stemAll(pairs(extr.source.getArgument1)).mkString(" ")
-    val relNorm = stemmer.stemAll(pairs(extr.source.getRelation)).mkString(" ")
-    val arg2Norm = stemmer.stemAll(pairs(extr.source.getArgument2)).mkString(" ")
-    RVTuple(arg1Norm, relNorm, arg2Norm)
+    def pairs(arg: ChunkedExtraction) = arg.getTokens.toSeq.zip(arg.getPosTags.toSeq)
+    
+    val arg1Pairs = pairs(extr.source.getArgument1).filter(!_._2.equals("DT"))
+    val relPairs = pairs(extr.source.getRelation).filter(!_._2.equals("DT"))
+    val arg2Pairs = pairs(extr.source.getArgument2).filter(!_._2.equals("DT"))
+    
+    val arg1Norm = stemmer.stemAll(arg1Pairs)
+    val relNorm = stemmer.stemAll(relPairs)
+    val arg2Norm = stemmer.stemAll(arg2Pairs)
+    
+    
+    RVTuple(arg1Norm.mkString(" "), relNorm.mkString(" "), arg2Norm.mkString(" "))
   }
 
   def getKeyValuePair(line: String): Option[(String, String)] = {
@@ -135,11 +142,15 @@ object FbidLinker {
           }
         }
 
-        if (Random.nextDouble < 0.00001) System.err.println("Group processing time: %s ms".format(Milliseconds.format(t)))
+        if (Random.nextDouble < 0.0002) {
+          System.err.println("Group processing time: %s for key %s, group:".format(Milliseconds.format(t), key))
+          System.err.println(if (result.isDefined) result.get else "None")
+          System.err.println("Linker instance cache: "+linkerCache.toString)
+        }
 
         result
     }
 
-    DList.persist(TextOutput.toTextFile(groups, outputPath + "/test-results"));
+    DList.persist(TextOutput.toTextFile(groups, outputPath + "/"));
   }
 }
