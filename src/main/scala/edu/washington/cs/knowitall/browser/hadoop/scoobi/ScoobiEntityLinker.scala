@@ -86,18 +86,21 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
     val sources = extrs.map(e => e.source.getSentence().getTokensAsString()).toSeq
 
-    val arg1Entity = if (head.source.getArgument1().getPosTags().exists(_.startsWith("NNP"))) {
-      getEntity(el, head.arg1Tokens, head, sources).map(_._1)
-    } else {
-      None
-    }
-    
-    val arg2Entity = if (head.source.getArgument2().getPosTags().exists(_.startsWith("NNP"))) {
-      getEntity(el, head.arg2Tokens, head, sources).map(_._1)
-    } else {
-      None
-    }
+//    val arg1Entity = if (head.source.getArgument1().getPosTags().exists(_.startsWith("NNP"))) {
+//      getEntity(el, head.arg1Tokens, head, sources).map(_._1)
+//    } else {
+//      None
+//    }
+//    
+//    val arg2Entity = if (head.source.getArgument2().getPosTags().exists(_.startsWith("NNP"))) {
+//      getEntity(el, head.arg2Tokens, head, sources).map(_._1)
+//    } else {
+//      None
+//    }
 
+    val arg1Entity = None
+    val arg2Entity = None
+    
     val instances = extrs.map((_, "TeST", None))
 
     val newGroup = new ExtractionGroup(
@@ -145,7 +148,6 @@ object ScoobiEntityLinker {
         if (Random.nextDouble < 0.0002) {
           System.err.println("Group processing time: %s for key %s, group:".format(Milliseconds.format(t), key))
           System.err.println(if (result.isDefined) result.get else "None")
-          System.err.println("Linker instance cache: "+linkerCache.toString)
         }
 
         result
