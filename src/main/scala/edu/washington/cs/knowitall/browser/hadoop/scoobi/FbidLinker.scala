@@ -52,6 +52,7 @@ class FbidLinker(val stemmer: TaggedStemmer) {
 
   def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[(String, String)] = {
 
+       
     var argEntity: Option[(String, String)] = None
 
     val tryEL = el.getBestFbidFromSources(arg, sources)
@@ -83,7 +84,7 @@ class FbidLinker(val stemmer: TaggedStemmer) {
     } else {
       None
     }
-
+    
     val arg2Entity = if (head.source.getArgument2().getPosTags().exists(_.startsWith("NNP"))) {
       getEntity(el, head.arg2Tokens, head, sources).map(_._1)
     } else {
@@ -110,7 +111,7 @@ class FbidLinker(val stemmer: TaggedStemmer) {
 object FbidLinker {
 
   val linkerCache = new mutable.HashMap[Thread, EntityLinker]
-
+  
   def main(args: Array[String]) = withHadoopArgs(args) { a =>
 
     val flink = new FbidLinker(TaggedStemmer.getInstance)
@@ -134,11 +135,7 @@ object FbidLinker {
           }
         }
 
-        if (Random.nextDouble < 0.0001) {
-          System.err.println("Group processing time: %s ms for group:".format(Milliseconds.format(t)))
-          System.err.println(if (result.isDefined) result else "None")
-          System.err.println("Linker Cache: " + linkerCache.toString)
-        }
+        if (Random.nextDouble < 0.00001) System.err.println("Group processing time: %s ms".format(Milliseconds.format(t)))
 
         result
     }
