@@ -86,21 +86,18 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
     val sources = extrs.map(e => e.source.getSentence().getTokensAsString()).toSeq
 
-//    val arg1Entity = if (head.source.getArgument1().getPosTags().exists(_.startsWith("NNP"))) {
-//      getEntity(el, head.arg1Tokens, head, sources).map(_._1)
-//    } else {
-//      None
-//    }
-//    
-//    val arg2Entity = if (head.source.getArgument2().getPosTags().exists(_.startsWith("NNP"))) {
-//      getEntity(el, head.arg2Tokens, head, sources).map(_._1)
-//    } else {
-//      None
-//    }
-
-    val arg1Entity = None
-    val arg2Entity = None
+    val arg1Entity = if (head.source.getArgument1().getPosTags().exists(_.startsWith("NNP"))) {
+      getEntity(el, head.arg1Tokens, head, sources).map(_._1)
+    } else {
+      None
+    }
     
+    val arg2Entity = if (head.source.getArgument2().getPosTags().exists(_.startsWith("NNP"))) {
+      getEntity(el, head.arg2Tokens, head, sources).map(_._1)
+    } else {
+      None
+    }
+
     val instances = extrs.map((_, "TeST", None))
 
     val newGroup = new ExtractionGroup(
