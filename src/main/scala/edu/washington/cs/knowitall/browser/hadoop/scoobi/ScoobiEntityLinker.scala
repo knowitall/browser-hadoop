@@ -25,7 +25,7 @@ import edu.washington.cs.knowitall.browser.hadoop.entity.Pair
 
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
 
-class FbidLinker(val stemmer: TaggedStemmer) {
+class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
   case class RVTuple(arg1: String, rel: String, arg2: String) {
     override def toString = "%s, %s, %s".format(arg1, rel, arg2)
@@ -115,13 +115,13 @@ class FbidLinker(val stemmer: TaggedStemmer) {
 
 }
 
-object FbidLinker {
+object ScoobiEntityLinker {
 
   val linkerCache = new mutable.HashMap[Thread, EntityLinker]
   
   def main(args: Array[String]) = withHadoopArgs(args) { a =>
 
-    val flink = new FbidLinker(TaggedStemmer.getInstance)
+    val flink = new ScoobiEntityLinker(TaggedStemmer.getInstance)
 
     val (inputPath, outputPath) = (a(0), a(1))
 
