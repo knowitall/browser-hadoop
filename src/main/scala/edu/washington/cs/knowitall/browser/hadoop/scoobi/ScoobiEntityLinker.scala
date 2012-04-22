@@ -98,9 +98,9 @@ object ScoobiEntityLinker {
     
     
     try {
-      val num = random.nextInt % 4
+      val num = scala.math.abs(random.nextInt) % 4
       if (num == 0) return "/scratch/"
-      else return "/scratch%d/".format(num)
+      else return "/scratch%s/".format(num.toString)
     } catch {
       case e: NumberFormatException => { 
         e.printStackTrace()
