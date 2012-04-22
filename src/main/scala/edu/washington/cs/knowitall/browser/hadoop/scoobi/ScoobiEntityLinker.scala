@@ -29,7 +29,7 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
 class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
   case class RVTuple(arg1: String, rel: String, arg2: String) {
-    override def toString = "%s, %s, %s".format(arg1, rel, arg2)
+    override def toString = "%s__%s__%s".format(arg1, rel, arg2)
   }
   
   // returns an (arg1, rel, arg2) tuple of normalized string tokens
@@ -45,7 +45,7 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
     val arg2Norm = stemmer.stemAll(arg2Pairs)
     
     
-    RVTuple(arg1Norm.mkString(" "), relNorm.mkString(" "), arg2Norm.mkString(" "))
+    RVTuple(arg1Norm.mkString(" ").toLowerCase, relNorm.mkString(" ").toLowerCase, arg2Norm.mkString(" ").toLowerCase)
   }
 
   def getKeyValuePair(line: String): Option[(String, String)] = {
