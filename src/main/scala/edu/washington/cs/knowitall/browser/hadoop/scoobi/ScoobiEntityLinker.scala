@@ -87,6 +87,26 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
 object ScoobiEntityLinker {
 
+  // hardcoded for the rv cluster...
+  val baseIndex = /*/scratch*/"browser-freebase/3-context-sim/index"
+  
+  def getIndex: String = {
+    val conf = com.nicta.scoobi.Scoobi.conf
+    val attemptName = conf.get("mapred.task.id")
+    val lastStr = attemptName.split("_").last
+    try {
+      val num = lastStr.toDouble % 4
+      if (num == 0) return "/scratch/"+baseIndex
+      else return "/scratch%d/".format(num)+baseIndex
+    } catch {
+      case e: NumberFormatException => { 
+        e.printStackTrace()
+        System.err.println("Error getting index num for attempt id:" +attemptName)
+        return "/scratch/"+baseIndex
+        }
+    }
+  }
+    
   val linkerCache = new mutable.HashMap[Thread, EntityLinker]
   
   def main(args: Array[String]) = withHadoopArgs(args) { a =>
@@ -98,7 +118,7 @@ object ScoobiEntityLinker {
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
 
     val linkedGroups: DList[String] = lines.flatMap { line => 
-      val el = linkerCache.getOrElseUpdate(Thread.currentThread(), new EntityLinker())
+      val el = linkerCache.getOrElseUpdate(Thread.currentThread(), new EntityLinker(getIndex))
     	val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
     	extrOp match {
         case Some(extr) => Some(ReVerbExtractionGroup.toTabDelimited(flink.linkEntities(el, extr)))
