@@ -32,7 +32,7 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  * then constructs ExtractionGroup[ReVerbExtraction] from the reducer input. The Entity Linker
  * code is run in the reducer.
  */
-class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
+class ScoobiReVerbGrouper(val stemmer: TaggedStemmer) {
 
   case class RVTuple(arg1: String, rel: String, arg2: String) {
     override def toString = "%s__%s__%s".format(arg1, rel, arg2)
@@ -64,17 +64,7 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
     }
   }
 
-  def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[ArgEntity] = {
-
-       
-    var argEntity: Option[ArgEntity] = None
-
-    val tryEL = el.getBestFbidFromSources(arg, sources)
-    if (tryEL != null) argEntity = Some(ArgEntity(tryEL.one, tryEL.two))
-    argEntity
-  }
-
-  def processGroup(el: EntityLinker, key: String, rawExtrs: Iterable[String]): Option[ExtractionGroup[ReVerbExtraction]] = {
+  def processGroup(key: String, rawExtrs: Iterable[String]): Option[ExtractionGroup[ReVerbExtraction]] = {
 
     def failure(msg: String = "") = {
       System.err.println("Error processing in processGroup: " + msg + ", key: " + key);
@@ -93,17 +83,9 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
     val sources = extrs.map(e => e.source.getSentence().getTokensAsString()).toSeq
 
-    val arg1Entity = if (head.source.getArgument1().getPosTags().exists(_.startsWith("NNP"))) {
-      getEntity(el, head.arg1Tokens, head, sources)
-    } else {
-      None
-    }
+    val arg1Entity = None
     
-    val arg2Entity = if (head.source.getArgument2().getPosTags().exists(_.startsWith("NNP"))) {
-      getEntity(el, head.arg2Tokens, head, sources)
-    } else {
-      None
-    }
+    val arg2Entity = None
 
     val instances = extrs.map((_, "TeST", None))
 
@@ -122,13 +104,11 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
 }
 
-object ScoobiEntityLinker {
-
-  val linkerCache = new mutable.HashMap[Thread, EntityLinker]
+object ScoobiReVerbGrouper {
   
   def main(args: Array[String]) = withHadoopArgs(args) { a =>
 
-    val flink = new ScoobiEntityLinker(TaggedStemmer.getInstance)
+    val flink = new ScoobiReVerbGrouper(TaggedStemmer.getInstance)
 
     val (inputPath, outputPath) = (a(0), a(1))
 
@@ -141,9 +121,8 @@ object ScoobiEntityLinker {
     val groups = keyValuePair.groupByKey.flatMap {
       case (key, sources) =>
         //val el = new EntityLinker
-        val el = linkerCache.getOrElseUpdate(Thread.currentThread(), new EntityLinker())
         val (t, result) = time {
-          flink.processGroup(el, key, sources) match {
+          flink.processGroup(key, sources) match {
             case Some(group) => Some(ReVerbExtractionGroup.toTabDelimited(group))
             case None => None
           }
