@@ -87,27 +87,25 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
 object ScoobiEntityLinker {
 
+  var incrementMe = 0
+  
   // hardcoded for the rv cluster...
   val baseIndex = /*/scratch*/"browser-freebase/3-context-sim/index"
   
-  val numFinder = "[0-9]+".r
+  
     
   def getIndex: String = {
-    val localhostname = java.net.InetAddress.getLocalHost().getHostName()
     
-    val nodeNum = numFinder.findFirstIn(localhostname).getOrElse {
-      System.err.println("LocalHostName was: "+localhostname+ " couldn't get an ID from this!")
-      "0"
-    }
     
     try {
-      val num = nodeNum.toInt % 4
+      val num = incrementMe % 4
+      incrementMe += 1
       if (num == 0) return "/scratch/"+baseIndex
       else return "/scratch%d/".format(num)+baseIndex
     } catch {
       case e: NumberFormatException => { 
         e.printStackTrace()
-        System.err.println("Error getting index num for id:" +localhostname)
+        System.err.println("Error getting index num for id:" +incrementMe)
         return "/scratch/"+baseIndex
         }
     }
