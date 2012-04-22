@@ -87,26 +87,25 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
 object ScoobiEntityLinker {
 
-  var incrementMe = 0
+  var random = new scala.util.Random
   
   // hardcoded for the rv cluster...
   val baseIndex = /*/scratch*/"browser-freebase/3-context-sim/index"
   
   
     
-  def getIndex: String = {
+  def getScratch: String = {
     
     
     try {
-      val num = incrementMe % 4
-      incrementMe += 1
-      if (num == 0) return "/scratch/"+baseIndex
-      else return "/scratch%d/".format(num)+baseIndex
+      val num = random.nextInt % 4
+      if (num == 0) return "/scratch/"
+      else return "/scratch%d/".format(num)
     } catch {
       case e: NumberFormatException => { 
         e.printStackTrace()
-        System.err.println("Error getting index num for id:" +incrementMe)
-        return "/scratch/"+baseIndex
+        System.err.println("Error getting index")
+        return "/scratch/"
         }
     }
   }
@@ -122,7 +121,7 @@ object ScoobiEntityLinker {
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
 
     val linkedGroups: DList[String] = lines.flatMap { line => 
-      val el = linkerCache.getOrElseUpdate(Thread.currentThread(), new EntityLinker(getIndex))
+      val el = linkerCache.getOrElseUpdate(Thread.currentThread(), new EntityLinker(baseIndex+ baseIndex))
     	val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
     	extrOp match {
         case Some(extr) => Some(ReVerbExtractionGroup.toTabDelimited(flink.linkEntities(el, extr)))
