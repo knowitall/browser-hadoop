@@ -4,6 +4,9 @@ import java.util.concurrent.Semaphore
 import java.io.StringReader
 import uk.ac.susx.informatics.Morpha
 
+/**
+ * Copied and translated from a java implementation, which itself was originally adapted from other Java source
+ */
 object TaggedStemmer {
   val modifierTags = Set("JJ", "RB", "$PRP", "VBG")
   val determinerTags = Set("DT", "PDT", "WDT")

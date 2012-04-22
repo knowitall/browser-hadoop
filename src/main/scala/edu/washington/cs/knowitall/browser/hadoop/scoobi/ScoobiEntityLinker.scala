@@ -23,6 +23,7 @@ import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.browser.hadoop.entity.TopCandidatesFinder
 import edu.washington.cs.knowitall.browser.hadoop.entity.EntityLinker
 import edu.washington.cs.knowitall.browser.hadoop.entity.Pair
+import edu.washington.cs.knowitall.nlp.extraction.ChunkedArgumentExtraction
 
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
 
@@ -34,20 +35,14 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  */
 class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
-  case class RVTuple(arg1: String, rel: String, arg2: String) {
-    override def toString = "%s__%s__%s".format(arg1, rel, arg2)
-  }
+  val min_support_sentences = 2
   
-
-
   def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[ArgEntity] = {
 
-       
-    var argEntity: Option[ArgEntity] = None
-
     val tryEL = el.getBestFbidFromSources(arg, sources)
-    if (tryEL != null) argEntity = Some(ArgEntity(tryEL.one, tryEL.two))
-    argEntity
+
+    if (tryEL != null) Some(ArgEntity(tryEL.one, tryEL.two))
+    else None
   }
 
   def linkEntities(el: EntityLinker, group: ExtractionGroup[ReVerbExtraction]): ExtractionGroup[ReVerbExtraction] = {
@@ -58,13 +53,17 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
     val sources = extrs.map(e => e.source.getSentence().getTokensAsString()).toSeq
 
-    val arg1Entity = if (head.source.getArgument1().getPosTags().exists(_.startsWith("NNP"))) {
+    val enoughSources = extrs.size >= min_support_sentences
+    
+    def hasProper(arg: ChunkedArgumentExtraction) = arg.getPosTags.exists(_.startsWith("NNP"))
+    
+    val arg1Entity = if (enoughSources && hasProper(head.source.getArgument1())) {
       getEntity(el, head.arg1Tokens, head, sources)
     } else {
       None
     }
-    
-    val arg2Entity = if (head.source.getArgument2().getPosTags().exists(_.startsWith("NNP"))) {
+
+    val arg2Entity = if (enoughSources && hasProper(head.source.getArgument2())) {
       getEntity(el, head.arg2Tokens, head, sources)
     } else {
       None
@@ -78,7 +77,7 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
       arg2Entity,
       group.arg1Types,
       group.arg2Types,
-      group.instances.map(tup=>(tup._1, "g1b", tup._3)))
+      group.instances.map(tup => (tup._1, "g1b", tup._3)))
 
     newGroup
   }
@@ -87,43 +86,41 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
 object ScoobiEntityLinker {
 
-  var random = new scala.util.Random
-  
-  // hardcoded for the rv cluster...
-  val baseIndex = /*/scratch*/"browser-freebase/3-context-sim/index"
-  
-  
-    
+  val random = new scala.util.Random
+
+  // hardcoded for the rv cluster - the location of Tom's freebase context similarity index.
+  val baseIndex = /*/scratch*/ "browser-freebase/3-context-sim/index"
+
+  val linkerCache = new mutable.HashMap[Thread, EntityLinker]
+
+  /** Get a random scratch directory on an RV node. */
   def getScratch: String = {
-    
-    
+
     try {
       val num = (scala.math.abs(random.nextInt) % 4) + 1
       if (num == 1) return "/scratch/"
       else return "/scratch%s/".format(num.toString)
     } catch {
-      case e: NumberFormatException => { 
+      case e: NumberFormatException => {
         e.printStackTrace()
         System.err.println("Error getting index")
         return "/scratch/"
-        }
+      }
     }
   }
-    
-  val linkerCache = new mutable.HashMap[Thread, EntityLinker]
-  
-  def main(args: Array[String]) = withHadoopArgs(args) { a =>
+
+  def main(args: Array[String]) = withHadoopArgs(args) { remainingArgs =>
 
     val flink = new ScoobiEntityLinker(TaggedStemmer.getInstance)
 
-    val (inputPath, outputPath) = (a(0), a(1))
+    val (inputPath, outputPath) = (remainingArgs(0), remainingArgs(1))
 
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
 
-    val linkedGroups: DList[String] = lines.flatMap { line => 
-      val el = linkerCache.getOrElseUpdate(Thread.currentThread(), new EntityLinker(getScratch+ baseIndex))
-    	val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
-    	extrOp match {
+    val linkedGroups: DList[String] = lines.flatMap { line =>
+      val el = linkerCache.getOrElseUpdate(Thread.currentThread(), new EntityLinker(getScratch + baseIndex))
+      val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
+      extrOp match {
         case Some(extr) => Some(ReVerbExtractionGroup.toTabDelimited(flink.linkEntities(el, extr)))
         case None => None
       }
