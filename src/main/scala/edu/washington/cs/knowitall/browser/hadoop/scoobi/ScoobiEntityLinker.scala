@@ -121,7 +121,7 @@ object ScoobiEntityLinker {
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
 
     val linkedGroups: DList[String] = lines.flatMap { line => 
-      val el = linkerCache.getOrElseUpdate(Thread.currentThread(), new EntityLinker(baseIndex+ baseIndex))
+      val el = linkerCache.getOrElseUpdate(Thread.currentThread(), new EntityLinker(getScratch+ baseIndex))
     	val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
     	extrOp match {
         case Some(extr) => Some(ReVerbExtractionGroup.toTabDelimited(flink.linkEntities(el, extr)))
