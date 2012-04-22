@@ -86,6 +86,8 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
 object ScoobiEntityLinker {
 
+  val max_init_wait_ms = 3 * 60 * 1000;
+  
   val random = new scala.util.Random
 
   // hardcoded for the rv cluster - the location of Tom's freebase context similarity index.
@@ -109,6 +111,17 @@ object ScoobiEntityLinker {
     }
   }
 
+  def delayedInitEntityLinker = {
+    
+    // wait for a random period of time
+    val randWaitMs = random.nextInt(max_init_wait_ms)
+    System.err.println("Delaying %.02f seconds before initializing..".format(randWaitMs.toDouble / 1000.0))
+    
+    Thread.sleep(randWaitMs)
+        
+    new EntityLinker(getScratch + baseIndex)
+  }
+  
   def main(args: Array[String]) = withHadoopArgs(args) { remainingArgs =>
 
     val flink = new ScoobiEntityLinker(TaggedStemmer.getInstance)
@@ -118,7 +131,7 @@ object ScoobiEntityLinker {
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
 
     val linkedGroups: DList[String] = lines.flatMap { line =>
-      val el = linkerCache.getOrElseUpdate(Thread.currentThread(), new EntityLinker(getScratch + baseIndex))
+      val el = linkerCache.getOrElseUpdate(Thread.currentThread(), delayedInitEntityLinker)
       val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
       extrOp match {
         case Some(extr) => Some(ReVerbExtractionGroup.toTabDelimited(flink.linkEntities(el, extr)))
