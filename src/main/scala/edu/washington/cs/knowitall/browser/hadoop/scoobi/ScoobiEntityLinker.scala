@@ -78,7 +78,7 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
       arg2Entity,
       group.arg1Types,
       group.arg2Types,
-      group.instances)
+      group.instances.map(tup=>(tup._1, "g1b", tup._3)))
 
     newGroup
   }
