@@ -26,6 +26,12 @@ import edu.washington.cs.knowitall.browser.hadoop.entity.Pair
 
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
 
+/**
+ * A mapper + reducer job that
+ * takes tab-delimited ReVerbExtractions as input, groups them by a normalization key, and
+ * then constructs ExtractionGroup[ReVerbExtraction] from the reducer input. The Entity Linker
+ * code is run in the reducer.
+ */
 class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
   case class RVTuple(arg1: String, rel: String, arg2: String) {
