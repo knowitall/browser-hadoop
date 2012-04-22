@@ -90,18 +90,24 @@ object ScoobiEntityLinker {
   // hardcoded for the rv cluster...
   val baseIndex = /*/scratch*/"browser-freebase/3-context-sim/index"
   
+  val numFinder = "[0-9]+".r
+    
   def getIndex: String = {
-    val conf = com.nicta.scoobi.Scoobi.conf
-    val attemptName = conf.get("mapred.task.id")
-    val lastStr = attemptName.split("_").last
+    val localhostname = java.net.InetAddress.getLocalHost().getHostName()
+    
+    val nodeNum = numFinder.findFirstIn(localhostname).getOrElse {
+      System.err.println("LocalHostName was: "+localhostname+ " couldn't get an ID from this!")
+      "0"
+    }
+    
     try {
-      val num = lastStr.toDouble % 4
+      val num = nodeNum.toInt % 4
       if (num == 0) return "/scratch/"+baseIndex
       else return "/scratch%d/".format(num)+baseIndex
     } catch {
       case e: NumberFormatException => { 
         e.printStackTrace()
-        System.err.println("Error getting index num for attempt id:" +attemptName)
+        System.err.println("Error getting index num for id:" +localhostname)
         return "/scratch/"+baseIndex
         }
     }
