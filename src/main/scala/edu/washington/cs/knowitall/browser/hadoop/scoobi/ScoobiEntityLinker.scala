@@ -86,7 +86,9 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
 object ScoobiEntityLinker {
 
-  val max_init_wait_ms = 3 * 60 * 1000;
+  conf.set("mapred.job.name", "browser entity linker")
+  
+  val max_init_wait_ms = 5 * 60 * 1000;
   
   val random = new scala.util.Random
 
