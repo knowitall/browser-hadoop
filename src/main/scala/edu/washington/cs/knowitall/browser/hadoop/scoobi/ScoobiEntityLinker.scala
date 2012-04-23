@@ -88,7 +88,7 @@ object ScoobiEntityLinker {
 
   
   
-  val max_init_wait_ms = 5 * 60 * 1000;
+  val max_init_wait_ms = 1 * 30 * 1000;
   
   val random = new scala.util.Random
 
@@ -116,10 +116,10 @@ object ScoobiEntityLinker {
   def delayedInitEntityLinker = {
     
     // wait for a random period of time
-    val randWaitMs = random.nextInt(max_init_wait_ms)
-    System.err.println("Delaying %.02f seconds before initializing..".format(randWaitMs.toDouble / 1000.0))
+    val randWaitMs = math.abs(random.nextGaussian) * max_init_wait_ms
+    System.err.println("Delaying %.02f seconds before initializing..".format(randWaitMs / 1000.0))
     
-    Thread.sleep(randWaitMs)
+    Thread.sleep(randWaitMs.toInt)
         
     new EntityLinker(getScratch + baseIndex)
   }
