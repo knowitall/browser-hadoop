@@ -86,7 +86,7 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
 object ScoobiEntityLinker {
 
-  conf.set("mapred.job.name", "browser entity linker")
+  
   
   val max_init_wait_ms = 5 * 60 * 1000;
   
@@ -126,6 +126,8 @@ object ScoobiEntityLinker {
   
   def main(args: Array[String]) = withHadoopArgs(args) { remainingArgs =>
 
+    conf.set("mapred.job.name", "browser entity linker")
+    
     val flink = new ScoobiEntityLinker(TaggedStemmer.getInstance)
 
     val (inputPath, outputPath) = (remainingArgs(0), remainingArgs(1))
