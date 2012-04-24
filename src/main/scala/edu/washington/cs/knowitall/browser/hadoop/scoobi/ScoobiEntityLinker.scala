@@ -47,7 +47,10 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
     
     val tryEL = el.getBestFbidFromSources(arg, sources)
 
-    if (tryEL != null) Some(ArgEntity(tryEL.one, tryEL.two))
+    if (tryEL != null) {
+      argsLinked += 1
+      Some(ArgEntity(tryEL.one, tryEL.two))
+    }
     else None
   }
 
@@ -78,8 +81,6 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
       None
     }
     
-    if (arg1Entity.isDefined || arg2Entity.isDefined) argsLinked += 1
-
     val newGroup = new ExtractionGroup(
       group.arg1Norm,
       group.relNorm,
