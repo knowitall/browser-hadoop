@@ -35,10 +35,16 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  */
 class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
 
+  var groupsProcessed = 0
+  var argsLinked = 0
+  var argsLinkable = 0
+  
   val min_support_sentences = 2
   
   def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[ArgEntity] = {
 
+    argsLinkable += 1
+    
     val tryEL = el.getBestFbidFromSources(arg, sources)
 
     if (tryEL != null) Some(ArgEntity(tryEL.one, tryEL.two))
@@ -47,6 +53,9 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
 
   def linkEntities(group: ExtractionGroup[ReVerbExtraction]): ExtractionGroup[ReVerbExtraction] = {
 
+    groupsProcessed += 1
+    if (groupsProcessed % 10000 == 0) System.err.println("Groups processed: %d, Args Linkable: %d, Args Linked: %d".format(groupsProcessed, argsLinkable, argsLinked))
+    
     val extrs = group.instances.map(_._1)
 
     val head = extrs.head
@@ -68,6 +77,8 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
     } else {
       None
     }
+    
+    if (arg1Entity.isDefined || arg2Entity.isDefined) argsLinked += 1
 
     val newGroup = new ExtractionGroup(
       group.arg1Norm,

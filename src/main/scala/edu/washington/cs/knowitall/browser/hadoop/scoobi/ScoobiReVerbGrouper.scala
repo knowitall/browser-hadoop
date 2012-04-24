@@ -34,6 +34,8 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  */
 class ScoobiReVerbGrouper(val stemmer: TaggedStemmer) {
 
+  var groupsProcessed = 0
+  
   case class RVTuple(arg1: String, rel: String, arg2: String) {
     override def toString = "%s__%s__%s".format(arg1, rel, arg2)
   }
@@ -65,6 +67,9 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer) {
   }
 
   def processGroup(key: String, rawExtrs: Iterable[String]): Option[ExtractionGroup[ReVerbExtraction]] = {
+    
+    groupsProcessed += 1
+    if (groupsProcessed % 10000 == 0) System.err.println("Groups processed: %d".format(groupsProcessed))
 
     def failure(msg: String = "") = {
       System.err.println("Error processing in processGroup: " + msg + ", key: " + key);
@@ -106,35 +111,37 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer) {
 
 object ScoobiReVerbGrouper {
   
-  def main(args: Array[String]) = withHadoopArgs(args) { a =>
-
-    val flink = new ScoobiReVerbGrouper(TaggedStemmer.getInstance)
-
-    val (inputPath, outputPath) = (a(0), a(1))
-
-    val lines: DList[String] = TextInput.fromTextFile(inputPath)
-
-    // first we need to define what will be our key. We strip only articles - everything else just gets normalized... 
-    // normalized by something that takes POS tags, so it performs best.
-    val keyValuePair: DList[(String, String)] = lines.flatMap { line => flink.getKeyValuePair(line) }
-
-    val groups = keyValuePair.groupByKey.flatMap {
+  val grouperCache = new mutable.HashMap[Thread, ScoobiReVerbGrouper]
+  
+  /** extrs --> grouped by normalization key */
+  def groupExtractions(extrs: DList[String]): DList[String] = {
+    
+    val keyValuePair: DList[(String, String)] = extrs.flatMap { line => 
+      val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.getInstance))
+      grouper.getKeyValuePair(line) 
+      }
+    
+    keyValuePair.groupByKey.flatMap {
       case (key, sources) =>
+         val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.getInstance))
         //val el = new EntityLinker
-        val (t, result) = time {
-          flink.processGroup(key, sources) match {
+        grouper.processGroup(key, sources) match {
+          
             case Some(group) => Some(ReVerbExtractionGroup.toTabDelimited(group))
             case None => None
           }
-        }
-
-        if (Random.nextDouble < 0.0001) {
-          System.err.println("Group processing time: %s for key %s, group:".format(Milliseconds.format(t), key))
-          System.err.println(if (result.isDefined) result.get else "None")
-        }
-
-        result
     }
+    
+  }
+  
+  def main(args: Array[String]) = withHadoopArgs(args) { a =>
+
+    val (inputPath, outputPath) = (a(0), a(1))
+
+    // serialized ReVerbExtractions
+    val extrs: DList[String] = TextInput.fromTextFile(inputPath)
+
+    val groups = groupExtractions(extrs)
 
     DList.persist(TextOutput.toTextFile(groups, outputPath + "/"));
   }
