@@ -33,7 +33,7 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  * then constructs ExtractionGroup[ReVerbExtraction] from the reducer input. The Entity Linker
  * code is run in the reducer.
  */
-class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
+class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
 
   val min_support_sentences = 2
   
@@ -45,7 +45,7 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
     else None
   }
 
-  def linkEntities(el: EntityLinker, group: ExtractionGroup[ReVerbExtraction]): ExtractionGroup[ReVerbExtraction] = {
+  def linkEntities(group: ExtractionGroup[ReVerbExtraction]): ExtractionGroup[ReVerbExtraction] = {
 
     val extrs = group.instances.map(_._1)
 
@@ -86,8 +86,6 @@ class ScoobiEntityLinker(val stemmer: TaggedStemmer) {
 
 object ScoobiEntityLinker {
 
-  
-  
   val max_init_wait_ms = 1 * 30 * 1000;
   
   val random = new scala.util.Random
@@ -95,7 +93,7 @@ object ScoobiEntityLinker {
   // hardcoded for the rv cluster - the location of Tom's freebase context similarity index.
   val baseIndex = /*/scratch*/ "browser-freebase/3-context-sim/index"
 
-  val linkerCache = new mutable.HashMap[Thread, EntityLinker]
+  val linkerCache = new mutable.HashMap[Thread, ScoobiEntityLinker]
 
   /** Get a random scratch directory on an RV node. */
   def getScratch: String = {
@@ -121,27 +119,31 @@ object ScoobiEntityLinker {
     
     Thread.sleep(randWaitMs.toInt)
         
-    new EntityLinker(getScratch + baseIndex)
+    val el = new EntityLinker(getScratch + baseIndex)
+    new ScoobiEntityLinker(el, TaggedStemmer.getInstance)
+  }
+  
+  def linkGroups(groups: DList[String]): DList[String] = {
+    
+    groups.flatMap { line =>
+      val scoobiLinker = linkerCache.getOrElseUpdate(Thread.currentThread(), delayedInitEntityLinker)
+      val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
+      extrOp match {
+        case Some(extr) => Some(ReVerbExtractionGroup.toTabDelimited(scoobiLinker.linkEntities(extr)))
+        case None => None
+      }
+    }
   }
   
   def main(args: Array[String]) = withHadoopArgs(args) { remainingArgs =>
 
     conf.set("mapred.job.name", "browser entity linker")
-    
-    val flink = new ScoobiEntityLinker(TaggedStemmer.getInstance)
 
     val (inputPath, outputPath) = (remainingArgs(0), remainingArgs(1))
 
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
 
-    val linkedGroups: DList[String] = lines.flatMap { line =>
-      val el = linkerCache.getOrElseUpdate(Thread.currentThread(), delayedInitEntityLinker)
-      val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
-      extrOp match {
-        case Some(extr) => Some(ReVerbExtractionGroup.toTabDelimited(flink.linkEntities(el, extr)))
-        case None => None
-      }
-    }
+    val linkedGroups: DList[String] = linkGroups(lines) 
 
     DList.persist(TextOutput.toTextFile(linkedGroups, outputPath + "/"));
   }

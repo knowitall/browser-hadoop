@@ -128,7 +128,7 @@ object ScoobiReVerbGrouper {
           }
         }
 
-        if (Random.nextDouble < 0.0002) {
+        if (Random.nextDouble < 0.0001) {
           System.err.println("Group processing time: %s for key %s, group:".format(Milliseconds.format(t), key))
           System.err.println(if (result.isDefined) result.get else "None")
         }
