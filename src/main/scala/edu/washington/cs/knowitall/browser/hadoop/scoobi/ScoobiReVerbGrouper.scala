@@ -34,6 +34,7 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  */
 class ScoobiReVerbGrouper(val stemmer: TaggedStemmer) {
 
+  var extrsProcessed = 0
   var groupsProcessed = 0
   
   case class RVTuple(arg1: String, rel: String, arg2: String) {
@@ -57,6 +58,10 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer) {
   }
 
   def getKeyValuePair(line: String): Option[(String, String)] = {
+    
+    extrsProcessed += 1
+    if (extrsProcessed % 20000 == 0) System.err.println("Extractions processed: %d".format(extrsProcessed))
+    
     // parse the line to a ReVerbExtraction
     val extrOpt = ReVerbExtraction.fromTabDelimited(line.split("\t"))._1
 
