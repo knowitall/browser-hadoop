@@ -39,7 +39,7 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
   var argsLinked = 0
   var argsLinkable = 0
   
-  val min_support_sentences = 2
+  val min_support_sentences = 1
   
   def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[ArgEntity] = {
 
