@@ -30,13 +30,13 @@ object ScoobiReVerbGrouperLinker {
   
   def main(args: Array[String]) = withHadoopArgs(args) { a =>
 
-    val (inputPath, outputPath) = (a(0), a(1))
+    val (inputPath, outputPath, corpus) = (a(0), a(1), a(2))
 
     // serialized ReVerbExtractions
     val extrs: DList[String] = TextInput.fromTextFile(inputPath)
     
     // serialized ExtractionGroup[ReVerbExtraction]
-    val groups = ScoobiReVerbGrouper.groupExtractions(extrs)
+    val groups = ScoobiReVerbGrouper.groupExtractions(extrs, corpus)
     
     val linkedGroups = ScoobiEntityLinker.linkGroups(groups)
     

@@ -32,7 +32,7 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  * then constructs ExtractionGroup[ReVerbExtraction] from the reducer input. The Entity Linker
  * code is run in the reducer.
  */
-class ScoobiReVerbGrouper(val stemmer: TaggedStemmer) {
+class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 
   var extrsProcessed = 0
   var groupsProcessed = 0
@@ -83,7 +83,7 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer) {
     }
 
     val extrs = rawExtrs.flatMap(line => ReVerbExtraction.fromTabDelimited(line.split("\t"))._1)
-
+    		
     val head = extrs.head
 
     val origTuple = RVTuple(head.a1t, head.rt, head.a2t)
@@ -97,7 +97,7 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer) {
     
     val arg2Entity = None
 
-    val instances = extrs.map((_, "TeST", None))
+    val instances = extrs.map((_, corpus, None))
 
     val newGroup = new ExtractionGroup(
       normTuple.arg1,
@@ -119,16 +119,16 @@ object ScoobiReVerbGrouper {
   val grouperCache = new mutable.HashMap[Thread, ScoobiReVerbGrouper]
   
   /** extrs --> grouped by normalization key */
-  def groupExtractions(extrs: DList[String]): DList[String] = {
+  def groupExtractions(extrs: DList[String], corpus:String): DList[String] = {
     
     val keyValuePair: DList[(String, String)] = extrs.flatMap { line => 
-      val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.getInstance))
+      val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.getInstance, corpus))
       grouper.getKeyValuePair(line) 
       }
     
     keyValuePair.groupByKey.flatMap {
       case (key, sources) =>
-         val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.getInstance))
+         val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.getInstance, corpus))
         //val el = new EntityLinker
         grouper.processGroup(key, sources) match {
           
@@ -141,12 +141,12 @@ object ScoobiReVerbGrouper {
   
   def main(args: Array[String]) = withHadoopArgs(args) { a =>
 
-    val (inputPath, outputPath) = (a(0), a(1))
+    val (inputPath, outputPath, corpus) = (a(0), a(1), a(2))
 
     // serialized ReVerbExtractions
     val extrs: DList[String] = TextInput.fromTextFile(inputPath)
 
-    val groups = groupExtractions(extrs)
+    val groups = groupExtractions(extrs, corpus)
 
     DList.persist(TextOutput.toTextFile(groups, outputPath + "/"));
   }
