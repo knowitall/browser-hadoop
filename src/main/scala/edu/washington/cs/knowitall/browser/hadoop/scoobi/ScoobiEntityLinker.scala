@@ -105,8 +105,9 @@ object ScoobiEntityLinker {
   // hardcoded for the rv cluster - the location of Tom's freebase context similarity index.
   val baseIndex = /*/scratch*/ "browser-freebase/3-context-sim/index"
 
-  val linkerCache = new mutable.HashMap[Thread, ScoobiEntityLinker]
-
+  //val linkerCache = new mutable.HashMap[Thread, ScoobiEntityLinker] with mutable.SynchronizedMap[Thread, ScoobiEntityLinker]
+  val linkers = new ThreadLocal[ScoobiEntityLinker] { override def initialValue = delayedInitEntityLinker }
+    
   /** Get a random scratch directory on an RV node. */
   def getScratch: String = {
 
@@ -138,7 +139,7 @@ object ScoobiEntityLinker {
   def linkGroups(groups: DList[String]): DList[String] = {
     
     groups.flatMap { line =>
-      val scoobiLinker = linkerCache.getOrElseUpdate(Thread.currentThread(), delayedInitEntityLinker)
+      val scoobiLinker = linkers.get
       val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
       extrOp match {
         case Some(extr) => Some(ReVerbExtractionGroup.toTabDelimited(scoobiLinker.linkEntities(extr)))

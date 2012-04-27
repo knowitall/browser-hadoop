@@ -120,7 +120,7 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 object ScoobiReVerbGrouper {
 
   var calls = 0L
-  val grouperCache = new mutable.HashMap[Thread, ScoobiReVerbGrouper]
+  val grouperCache = new mutable.HashMap[Thread, ScoobiReVerbGrouper] with mutable.SynchronizedMap[Thread, ScoobiReVerbGrouper]
 
   /** extrs --> grouped by normalization key */
   def groupExtractions(extrs: DList[String], corpus: String): DList[String] = {
