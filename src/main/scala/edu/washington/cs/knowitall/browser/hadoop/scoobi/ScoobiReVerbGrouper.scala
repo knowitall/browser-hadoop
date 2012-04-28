@@ -34,6 +34,8 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  */
 class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 
+  val max_group_size = 40000
+  
   var extrsProcessed = 0
   var groupsProcessed = 0
   
@@ -74,16 +76,18 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 
   def processGroup(key: String, rawExtrs: Iterable[String]): Option[ExtractionGroup[ReVerbExtraction]] = {
 
+    val rawExtrsTruncated = rawExtrs.take(max_group_size)
+    
     groupsProcessed += 1
     if (groupsProcessed % 10000 == 0) System.err.println("Groups processed: %d, current key: %s, largest group: %d".format(groupsProcessed, key, largestGroup))
 
     def failure(msg: String = "") = {
       System.err.println("Error in processGroup: " + msg + ", key: " + key);
-      rawExtrs.foreach(str => System.err.println(str))
+      rawExtrsTruncated.foreach(str => System.err.println(str))
       None
     }
 
-    val extrs = rawExtrs.flatMap(line => ReVerbExtraction.fromTabDelimited(line.split("\t"))._1)
+    val extrs = rawExtrsTruncated.flatMap(line => ReVerbExtraction.fromTabDelimited(line.split("\t"))._1)
 
     val head = extrs.head
 
