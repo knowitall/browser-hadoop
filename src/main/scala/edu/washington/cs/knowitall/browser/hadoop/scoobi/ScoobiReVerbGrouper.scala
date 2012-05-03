@@ -17,7 +17,9 @@ import scala.collection.mutable
 
 import edu.washington.cs.knowitall.common.Timing._
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
-import edu.washington.cs.knowitall.browser.extraction.ArgEntity
+import edu.washington.cs.knowitall.browser.extraction.FreeBaseEntity
+import edu.washington.cs.knowitall.browser.extraction.FreeBaseType
+import edu.washington.cs.knowitall.browser.extraction.Instance
 import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.browser.hadoop.entity.TopCandidatesFinder
@@ -102,7 +104,7 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 
     val arg2Entity = None
 
-    val instances = extrs.map((_, corpus, None)).toSet[(ReVerbExtraction, String, Option[Double])]
+    val instances = extrs.map(e => new Instance(e, corpus, None)).toSet
 
     if (instances.size > largestGroup) largestGroup = instances.size
     
@@ -112,8 +114,8 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
       normTuple.arg2,
       arg1Entity,
       arg2Entity,
-      Seq.empty[ArgEntity],
-      Seq.empty[ArgEntity],
+      Seq.empty[FreeBaseType],
+      Seq.empty[FreeBaseType],
       instances)
 
     Some(newGroup)

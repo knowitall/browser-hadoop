@@ -17,7 +17,6 @@ import scala.collection.mutable
 
 import edu.washington.cs.knowitall.common.Timing._
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
-import edu.washington.cs.knowitall.browser.extraction.ArgEntity
 import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.browser.hadoop.entity.TopCandidatesFinder

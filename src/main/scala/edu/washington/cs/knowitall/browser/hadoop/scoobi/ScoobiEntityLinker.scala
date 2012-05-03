@@ -17,8 +17,9 @@ import scala.collection.mutable
 
 import edu.washington.cs.knowitall.common.Timing._
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
-import edu.washington.cs.knowitall.browser.extraction.ArgEntity
+import edu.washington.cs.knowitall.browser.extraction.FreeBaseEntity
 import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
+import edu.washington.cs.knowitall.browser.extraction.Instance
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.browser.hadoop.entity.TopCandidatesFinder
 import edu.washington.cs.knowitall.browser.hadoop.entity.EntityLinker
@@ -41,7 +42,7 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
   
   val min_support_sentences = 1
   
-  def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[ArgEntity] = {
+  def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[FreeBaseEntity] = {
 
     argsLinkable += 1
     
@@ -49,7 +50,7 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
 
     if (tryEL != null) {
       argsLinked += 1
-      Some(ArgEntity(tryEL.one, tryEL.two))
+      Some(FreeBaseEntity(tryEL.one, tryEL.two))
     }
     else None
   }
@@ -59,7 +60,7 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
     groupsProcessed += 1
     if (groupsProcessed % 10000 == 0) System.err.println("Groups processed: %d, Args Linkable: %d, Args Linked: %d".format(groupsProcessed, argsLinkable, argsLinked))
     
-    val extrs = group.instances.map(_._1)
+    val extrs = group.instances.map(_.extraction)
 
     val head = extrs.head
 
@@ -89,7 +90,7 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
       arg2Entity,
       group.arg1Types,
       group.arg2Types,
-      group.instances.map(tup => (tup._1, "g1b", tup._3)))
+      group.instances.map(inst => new Instance(inst.extraction, "g1b", inst.confidence)))
 
     newGroup
   }
