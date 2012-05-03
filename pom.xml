@@ -191,7 +191,7 @@
 				<configuration>
 					<archive>
 						<manifest>
-							<mainClass>edu.washington.cs.knowitall.browser.hadoop.scoobi.ScoobiReVerbGrouperLinker</mainClass>
+							<mainClass>edu.washington.cs.knowitall.browser.hadoop.scoobi.ScoobiGroupReGrouper</mainClass>
 						</manifest>
 					</archive>
 				</configuration>

@@ -28,6 +28,10 @@ import edu.washington.cs.knowitall.browser.hadoop.entity.Pair
 
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
 
+  case class RVTuple(arg1: String, rel: String, arg2: String) {
+    override def toString = "%s__%s__%s".format(arg1, rel, arg2)
+  }
+
 /**
  * A mapper + reducer job that
  * takes tab-delimited ReVerbExtractions as input, groups them by a normalization key, and
@@ -36,16 +40,14 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  */
 class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 
-  val max_group_size = 40000
+  
   
   var extrsProcessed = 0
   var groupsProcessed = 0
   
   var largestGroup = 0
 
-  case class RVTuple(arg1: String, rel: String, arg2: String) {
-    override def toString = "%s__%s__%s".format(arg1, rel, arg2)
-  }
+
 
   // returns an (arg1, rel, arg2) tuple of normalized string tokens
   def getNormalizedKey(extr: ReVerbExtraction): RVTuple = {
@@ -78,7 +80,7 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 
   def processGroup(key: String, rawExtrs: Iterable[String]): Option[ExtractionGroup[ReVerbExtraction]] = {
 
-    val rawExtrsTruncated = rawExtrs.take(max_group_size)
+    val rawExtrsTruncated = rawExtrs.take(ScoobiReVerbGrouper.max_group_size)
     
     groupsProcessed += 1
     if (groupsProcessed % 10000 == 0) System.err.println("Groups processed: %d, current key: %s, largest group: %d".format(groupsProcessed, key, largestGroup))
@@ -125,6 +127,8 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 
 object ScoobiReVerbGrouper {
 
+  val max_group_size = 40000
+  
   var calls = 0L
   val grouperCache = new mutable.HashMap[Thread, ScoobiReVerbGrouper] with mutable.SynchronizedMap[Thread, ScoobiReVerbGrouper]
 
