@@ -90,7 +90,7 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
       arg2Entity,
       group.arg1Types,
       group.arg2Types,
-      group.instances.map(inst => new Instance(inst.extraction, "g1b", inst.confidence)))
+      group.instances.map(inst => new Instance(inst.extraction, inst.corpus, inst.confidence)))
 
     newGroup
   }
