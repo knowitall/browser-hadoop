@@ -99,12 +99,16 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
 
 object ScoobiEntityLinker {
 
-  val max_init_wait_ms = 1 * 30 * 1000;
+  
+  // std. deviation for the wait times
+  val max_init_wait_ms = 1 * 1 * 1000;
   
   val random = new scala.util.Random
 
   // hardcoded for the rv cluster - the location of Tom's freebase context similarity index.
-  val baseIndex = /*/scratch*/ "browser-freebase/3-context-sim/index"
+  // Indexes are on the /scratchX/ where X in {"", 2, 3, 4}, the method getScratch currently
+  // decides how to pick one of the choices.
+  val baseIndex = "browser-freebase/3-context-sim/index"
 
   //val linkerCache = new mutable.HashMap[Thread, ScoobiEntityLinker] with mutable.SynchronizedMap[Thread, ScoobiEntityLinker]
   val linkers = new ThreadLocal[ScoobiEntityLinker] { override def initialValue = delayedInitEntityLinker }

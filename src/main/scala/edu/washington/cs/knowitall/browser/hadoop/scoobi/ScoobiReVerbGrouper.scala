@@ -95,7 +95,6 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 
     val head = extrs.head
 
-    val origTuple = RVTuple(head.a1t, head.rt, head.a2t)
     val normTuple = getNormalizedKey(head)
 
     if (!normTuple.toString.equals(key)) return failure("Key Mismatch: " + normTuple.toString + " != " + key)
