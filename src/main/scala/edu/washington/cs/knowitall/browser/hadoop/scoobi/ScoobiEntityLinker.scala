@@ -21,6 +21,7 @@ import edu.washington.cs.knowitall.browser.extraction.FreeBaseEntity
 import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.Instance
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
+import edu.washington.cs.knowitall.browser.util.TaggedStemmer
 import edu.washington.cs.knowitall.browser.hadoop.entity.TopCandidatesFinder
 import edu.washington.cs.knowitall.browser.hadoop.entity.EntityLinker
 import edu.washington.cs.knowitall.browser.hadoop.entity.Pair
