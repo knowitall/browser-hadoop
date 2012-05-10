@@ -106,7 +106,8 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 
     val arg2Entity = None
 
-    val instances = extrs.map(e => new Instance(e, corpus, None)).toSet
+    // this line also computes confidences for each instance, in tryAddConf... 
+    val instances = extrs.map(e => ScoobiGroupReGrouper.tryAddConf(new Instance(e, corpus, -1.0))).toSet
 
     if (instances.size > largestGroup) largestGroup = instances.size
     

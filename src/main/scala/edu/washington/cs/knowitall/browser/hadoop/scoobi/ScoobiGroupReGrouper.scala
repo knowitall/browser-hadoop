@@ -86,12 +86,7 @@ object ScoobiGroupReGrouper {
     val group = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1.getOrElse { return None }
 
     // go through and assign confs to any extractions without them
-    val confedInstances = group.instances.map { inst =>
-      inst.confidence match {
-        case Some(conf) => inst
-        case None => tryAddConf(inst)
-      }
-    }
+    val confedInstances = group.instances.map { inst => if (inst.confidence < 0) tryAddConf(inst) else inst }
 
     val newGroup = new ExtractionGroup(group.arg1Norm,
       group.relNorm,
@@ -108,10 +103,10 @@ object ScoobiGroupReGrouper {
   /**
     * Tries to attach a conf to inst, if it doesn't already have one. If it fails, reports an error, but returns inst unchanged.
     */
-  private def tryAddConf(inst: Instance[ReVerbExtraction]): Instance[ReVerbExtraction] = {
+  def tryAddConf(inst: Instance[ReVerbExtraction]): Instance[ReVerbExtraction] = {
     try {
       val conf = confLocal.get().getConf(inst.extraction.source)
-      new Instance(inst.extraction, inst.corpus, Some(conf))
+      new Instance(inst.extraction, inst.corpus, conf)
     } catch {
       case e: Exception => { e.printStackTrace; System.err.println(inst.extraction.source); inst }
     }

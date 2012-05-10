@@ -85,7 +85,7 @@ object OldRvConverter {
 
     val sentence = tryParsingSentence(split(settings.sentCol))
     
-    val sourceUrl = Some(split(settings.urlDomCol)+split(settings.urlPathCol))
+    val sourceUrl = split(settings.urlDomCol)+split(settings.urlPathCol)
 
     if (!sentence.isDefined) return lineFailure
 
@@ -127,7 +127,7 @@ object OldRvConverter {
     }
   }
 
-  private def buildExtraction(arg1Range: Range, relRange: Range, arg2Range: Range, sentence: ChunkedSentence, sourceUrl: Option[String]): Option[ReVerbExtraction] = {
+  private def buildExtraction(arg1Range: Range, relRange: Range, arg2Range: Range, sentence: ChunkedSentence, sourceUrl: String): Option[ReVerbExtraction] = {
    
     try {
       // verification
