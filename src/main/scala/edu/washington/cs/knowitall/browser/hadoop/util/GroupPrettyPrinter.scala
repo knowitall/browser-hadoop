@@ -30,6 +30,8 @@ object GroupPrettyPrinter {
   
   def main(args: Array[String]): Unit = {
     
+    println(tabHeaders)
+    
     Source.fromInputStream(System.in).getLines.flatMap({ line => ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1}).foreach { group =>
       val pretty = getPrettyGroup(group)
       println(pretty)
