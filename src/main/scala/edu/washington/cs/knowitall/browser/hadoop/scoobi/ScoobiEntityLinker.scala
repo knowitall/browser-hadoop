@@ -43,6 +43,9 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
 
   var hcArg1sLinked = 0
   var hcArg2sLinked = 0
+ 
+  var hcArg1sTotal = 0
+  var hcArg2sTotal = 0
   
   val min_support_sentences = 1
   
@@ -60,34 +63,33 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
   def linkEntities(group: ExtractionGroup[ReVerbExtraction]): ExtractionGroup[ReVerbExtraction] = {
 
     groupsProcessed += 1
-    if (groupsProcessed % 10000 == 0) {
-      System.err.println("Groups processed: %d".format(groupsProcessed))
-      System.err.println("Arg1s Linked: %d, High-conf Arg1s Linked: %d".format(arg1sLinked, hcArg1sLinked))
-      System.err.println("Arg2s Linked: %d, High-conf Arg2s Linked: %d".format(arg2sLinked, hcArg2sLinked))
-    }
     
     val extrs = group.instances.map(_.extraction)
 
     val head = extrs.head
 
     val confs = group.instances.flatMap(_.confidence)
-    val avgConf = confs.sum / confs.size.toDouble
+    val minConf = confs.min
     val sources = extrs.map(e => e.source.getSentence().getTokensAsString()).toSeq
 
     val arg1Entity = getEntity(el, head.arg1Tokens, head, sources)
 
     if (arg1Entity.isDefined) {
       arg1sLinked += 1
-      if (avgConf > 0.9) hcArg1sLinked += 1
+      if (minConf > 0.9) hcArg1sLinked += 1
     }
     
     val arg2Entity = getEntity(el, head.arg2Tokens, head, sources)
     
     if (arg2Entity.isDefined) {
       arg2sLinked += 1
-      if (avgConf > 0.9) hcArg2sLinked += 1
+      if (minConf > 0.9) hcArg2sLinked += 1
     }
     
+    if (minConf > 0.9) {
+      hcArg1sTotal += 1
+      hcArg2sTotal += 1
+    }
     
     val newGroup = new ExtractionGroup(
       group.arg1Norm,
@@ -99,6 +101,12 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
       group.arg2Types,
       group.instances.map(inst => new Instance(inst.extraction, inst.corpus, inst.confidence)))
 
+    if (groupsProcessed % 10000 == 0) {
+      System.err.println("Groups processed: %d".format(groupsProcessed))
+      System.err.println("Arg1s Linked: %d, High-conf Arg1s Linked: %d, High-conf Arg1s Total: %d".format(arg1sLinked, hcArg1sLinked, hcArg1sTotal))
+      System.err.println("Arg2s Linked: %d, High-conf Arg2s Linked: %d, High-conf Arg2s Total: %d".format(arg2sLinked, hcArg2sLinked, hcArg2sTotal))
+    }
+    
     newGroup
   }
 
@@ -106,7 +114,6 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
 
 object ScoobiEntityLinker {
 
-  
   // std. deviation for the wait times
   val max_init_wait_ms = 1 * 1 * 1000;
   
