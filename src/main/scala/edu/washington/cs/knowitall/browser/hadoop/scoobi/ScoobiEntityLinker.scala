@@ -38,19 +38,20 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
 class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
 
   var groupsProcessed = 0
-  var argsLinked = 0
-  var argsLinkable = 0
+  var arg1sLinked = 0
+  var arg2sLinked = 0
+
+  var hcArg1sLinked = 0
+  var hcArg2sLinked = 0
   
   val min_support_sentences = 1
   
   def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[FreeBaseEntity] = {
 
-    argsLinkable += 1
-    
     val tryEL = el.getBestFbidFromSources(arg, sources)
 
     if (tryEL != null) {
-      argsLinked += 1
+
       Some(FreeBaseEntity(tryEL.one, tryEL.two))
     }
     else None
@@ -59,29 +60,33 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
   def linkEntities(group: ExtractionGroup[ReVerbExtraction]): ExtractionGroup[ReVerbExtraction] = {
 
     groupsProcessed += 1
-    if (groupsProcessed % 10000 == 0) System.err.println("Groups processed: %d, Args Linkable: %d, Args Linked: %d".format(groupsProcessed, argsLinkable, argsLinked))
+    if (groupsProcessed % 10000 == 0) {
+      System.err.println("Groups processed: %d".format(groupsProcessed))
+      System.err.println("Arg1s Linked: %d, High-conf Arg1s Linked: %d".format(arg1sLinked, hcArg1sLinked))
+      System.err.println("Arg2s Linked: %d, High-conf Arg2s Linked: %d".format(arg2sLinked, hcArg2sLinked))
+    }
     
     val extrs = group.instances.map(_.extraction)
 
     val head = extrs.head
 
+    val avgConf = group.instances.flatMap(_.confidence).sum
     val sources = extrs.map(e => e.source.getSentence().getTokensAsString()).toSeq
 
-    val enoughSources = extrs.size >= min_support_sentences
-    
-    def hasProper(arg: ChunkedArgumentExtraction) = arg.getPosTags.exists(_.startsWith("NNP"))
-    
-    val arg1Entity = if (enoughSources && hasProper(head.source.getArgument1())) {
-      getEntity(el, head.arg1Tokens, head, sources)
-    } else {
-      None
-    }
+    val arg1Entity = getEntity(el, head.arg1Tokens, head, sources)
 
-    val arg2Entity = if (enoughSources && hasProper(head.source.getArgument2())) {
-      getEntity(el, head.arg2Tokens, head, sources)
-    } else {
-      None
+    if (arg1Entity.isDefined) {
+      arg1sLinked += 1
+      if (avgConf > 0.9) hcArg1sLinked += 1
     }
+    
+    val arg2Entity = getEntity(el, head.arg2Tokens, head, sources)
+    
+    if (arg2Entity.isDefined) {
+      arg2sLinked += 1
+      if (avgConf > 0.9) hcArg2sLinked += 1
+    }
+    
     
     val newGroup = new ExtractionGroup(
       group.arg1Norm,
