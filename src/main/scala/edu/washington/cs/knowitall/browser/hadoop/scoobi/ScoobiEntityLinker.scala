@@ -68,27 +68,27 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
   
   def highQualityTest(instances: Iterable[Instance[ReVerbExtraction]]) = {
     
-    val confs = instances.flatMap(_.confidence)
+    val confs = instances.map(_.confidence)
     
     val lowConf = confs.min < 0.85
     def tooSmall = instances.size == 1
     
-    val head = instances.head.extraction
+    lazy val head = instances.head.extraction
     
-    val arg1 = head.source.getArgument1
-    val arg2 = head.source.getArgument2
+    lazy val arg1 = head.source.getArgument1
+    lazy val arg2 = head.source.getArgument2
     
-    val arg1Tokens = arg1.getTokens
-    val arg2Tokens = arg2.getTokens
+    lazy val arg1Tokens = arg1.getTokens
+    lazy val arg2Tokens = arg2.getTokens
     
     def arg1HasPronoun = arg1Tokens.exists(tok => pronouns.contains(tok.toLowerCase))
     def arg2HasPronoun = arg2Tokens.exists(tok => pronouns.contains(tok.toLowerCase))
     
-    val relTokens = head.source.getRelation.getTokens
+    lazy val relTokens = head.source.getRelation.getTokens
     def relBad = badRel.contains(relTokens.head.toLowerCase)
     
-    val arg1PosTags = arg1.getPosTags
-    val arg2PosTags = arg1.getPosTags
+    lazy val arg1PosTags = arg1.getPosTags
+    lazy val arg2PosTags = arg1.getPosTags
     
     def arg1NN = arg1PosTags.length == 1 && (arg1PosTags.head.equals("NN") || arg1PosTags.head.equals("NNS"))
     def arg2NN = arg2PosTags.length == 1 && (arg2PosTags.head.equals("NN") || arg2PosTags.head.equals("NNS"))
