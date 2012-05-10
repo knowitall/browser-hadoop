@@ -70,7 +70,8 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
 
     val head = extrs.head
 
-    val avgConf = group.instances.flatMap(_.confidence).sum
+    val confs = group.instances.flatMap(_.confidence)
+    val avgConf = confs.sum / confs.size.toDouble
     val sources = extrs.map(e => e.source.getSentence().getTokensAsString()).toSeq
 
     val arg1Entity = getEntity(el, head.arg1Tokens, head, sources)
