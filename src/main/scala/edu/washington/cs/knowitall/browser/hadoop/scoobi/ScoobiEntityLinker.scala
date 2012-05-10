@@ -36,7 +36,7 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  * code is run in the reducer.
  */
 class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
-
+  
   var groupsProcessed = 0
   var arg1sLinked = 0
   var arg2sLinked = 0
@@ -46,8 +46,6 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
  
   var hcArg1sTotal = 0
   var hcArg2sTotal = 0
-  
-  val min_support_sentences = 1
   
   def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[FreeBaseEntity] = {
 
@@ -59,6 +57,44 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
     }
     else None
   }
+  
+  /**
+   * A hack to try to help provide statistics for only "high quality extractions", approximately
+   * along the lines of what was done at reverb.cs.washington.edu for the high quality clueweb data.
+   */
+  // these are used purely for counting statistics and not for determining what gets linked
+  private val pronouns = Set("he", "she", "they", "them", "that", "this", "who", "whom", "i", "you", "him", "her", "we", "it", "the", "a", "an")
+  private val badRel = Set("have", "is", "said")
+  
+  def highQualityTest(instances: Iterable[Instance[ReVerbExtraction]]) = {
+    
+    val confs = instances.flatMap(_.confidence)
+    
+    val lowConf = confs.min < 0.85
+    def tooSmall = instances.size == 1
+    
+    val head = instances.head.extraction
+    
+    val arg1 = head.source.getArgument1
+    val arg2 = head.source.getArgument2
+    
+    val arg1Tokens = arg1.getTokens
+    val arg2Tokens = arg2.getTokens
+    
+    def arg1HasPronoun = arg1Tokens.exists(tok => pronouns.contains(tok.toLowerCase))
+    def arg2HasPronoun = arg2Tokens.exists(tok => pronouns.contains(tok.toLowerCase))
+    
+    val relTokens = head.source.getRelation.getTokens
+    def relBad = badRel.contains(relTokens.head.toLowerCase)
+    
+    val arg1PosTags = arg1.getPosTags
+    val arg2PosTags = arg1.getPosTags
+    
+    def arg1NN = arg1PosTags.length == 1 && (arg1PosTags.head.equals("NN") || arg1PosTags.head.equals("NNS"))
+    def arg2NN = arg2PosTags.length == 1 && (arg2PosTags.head.equals("NN") || arg2PosTags.head.equals("NNS"))
+    
+    !(lowConf || tooSmall || arg1HasPronoun || arg2HasPronoun || relBad || arg1NN || arg2NN)
+  }
 
   def linkEntities(group: ExtractionGroup[ReVerbExtraction]): ExtractionGroup[ReVerbExtraction] = {
 
@@ -68,25 +104,25 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
 
     val head = extrs.head
 
-    val confs = group.instances.flatMap(_.confidence)
-    val minConf = confs.min
+    val highQuality = highQualityTest(group.instances)
+      
     val sources = extrs.map(e => e.source.getSentence().getTokensAsString()).toSeq
 
     val arg1Entity = getEntity(el, head.arg1Tokens, head, sources)
 
     if (arg1Entity.isDefined) {
       arg1sLinked += 1
-      if (minConf > 0.9) hcArg1sLinked += 1
+      if (highQuality) hcArg1sLinked += 1
     }
     
     val arg2Entity = getEntity(el, head.arg2Tokens, head, sources)
     
     if (arg2Entity.isDefined) {
       arg2sLinked += 1
-      if (minConf > 0.9) hcArg2sLinked += 1
+      if (highQuality) hcArg2sLinked += 1
     }
     
-    if (minConf > 0.9) {
+    if (highQuality) {
       hcArg1sTotal += 1
       hcArg2sTotal += 1
     }
@@ -113,7 +149,7 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
 }
 
 object ScoobiEntityLinker {
-
+  
   // std. deviation for the wait times
   val max_init_wait_ms = 1 * 1 * 1000;
   
