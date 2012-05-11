@@ -93,6 +93,7 @@ object FbTypeLookupGenerator {
 
     tabRegex.split(line) match {
       case Array(rawEntity, rawTypes) => parseSplitLine(rawEntity, rawTypes)
+      case Array(rawEntity) => None // some entities don't seem to have any type info associated
       case _ => lineFailure
     }
   }
