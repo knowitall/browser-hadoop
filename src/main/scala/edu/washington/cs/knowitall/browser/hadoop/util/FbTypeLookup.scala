@@ -137,7 +137,9 @@ object FbTypeLookupGenerator {
       val typeInts = parsedLine.typeStrings.map { typeString =>
         typesToInts.getOrElseUpdate(typeString, { val next = nextTypeInt; nextTypeInt += 1; next })
       }
-      (parsedLine.entityFbid, typeInts)
+      val result = (parsedLine.entityFbid, typeInts)
+      println("adding %s".format(result))
+      result
     } toMap
 
     println("Done building maps. Writing output...")
