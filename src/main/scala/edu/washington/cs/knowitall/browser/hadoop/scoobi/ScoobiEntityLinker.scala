@@ -48,7 +48,7 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
   var hcArg2sTotal = 0
   
   def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[FreeBaseEntity] = {
-
+    
     val tryEL = el.getBestFbidFromSources(arg, sources)
 
     if (tryEL != null) {
@@ -108,14 +108,14 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
       
     val sources = extrs.map(e => e.source.getSentence().getTokensAsString()).toSeq
 
-    val arg1Entity = getEntity(el, head.arg1Tokens, head, sources)
+    val arg1Entity = if (group.arg1Entity.isDefined) group.arg1Entity else getEntity(el, head.arg1Tokens, head, sources)
 
     if (arg1Entity.isDefined) {
       arg1sLinked += 1
       if (highQuality) hcArg1sLinked += 1
     }
     
-    val arg2Entity = getEntity(el, head.arg2Tokens, head, sources)
+    val arg2Entity = if (group.arg2Entity.isDefined) group.arg2Entity else getEntity(el, head.arg2Tokens, head, sources)
     
     if (arg2Entity.isDefined) {
       arg2sLinked += 1
