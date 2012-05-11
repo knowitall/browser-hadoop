@@ -102,7 +102,7 @@ object FbTypeLookupGenerator {
 
     // try to remove the /m/ prefix from the entity
     val trimmedEntity = fbidPrefixRegex.findFirstIn(rawEntity) match {
-      case Some(string) => string.substring(3)
+      case Some(string) => rawEntity.substring(3)
       case None => { System.err.println("bad entity string: %s".format(rawEntity)); return None }
     }
 
@@ -136,7 +136,7 @@ object FbTypeLookupGenerator {
 
       val typeInts = parsedLine.typeStrings.map { typeString =>
         typesToInts.getOrElseUpdate(typeString, { val next = nextTypeInt; nextTypeInt += 1; next })
-      }
+      }.sorted
       val result = (parsedLine.entityFbid, typeInts)
       println("adding %s".format(result))
       result
