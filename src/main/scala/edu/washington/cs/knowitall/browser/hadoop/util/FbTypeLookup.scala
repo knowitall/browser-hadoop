@@ -120,14 +120,14 @@ object FbTypeLookupGenerator {
     val parser = new OptionParser() {
 
       arg("entityToTypeNumFile", "output file to contain entity to type enum data", { str => entityToTypeNumFile = str })
-      arg("typeEnumFile", "output file to contain type enumeration", { str => entityToTypeNumFile = str })
+      arg("typeEnumFile", "output file to contain type enumeration", { str => typeEnumFile = str })
     }
 
     if (!parser.parse(args)) return
 
     val parsedLines = Source.fromInputStream(System.in).getLines.flatMap(parseLine(_))
 
-    var typesToInts = new mutable.HashMap[String, Int]
+    val typesToInts = new mutable.HashMap[String, Int]
     var nextTypeInt = 0
 
     println("Reading file...")
@@ -150,6 +150,7 @@ object FbTypeLookupGenerator {
         entWriter.println("%s\t%s".format(entityFbid, typeNums.mkString(",")))
     }
 
+    entWriter.flush()
     entWriter.close()
 
     val enumWriter = new PrintWriter(new FileWriter(typeEnumFile))
@@ -159,6 +160,7 @@ object FbTypeLookupGenerator {
         enumWriter.println("%s\t%s".format(typeInt, typeString))
     }
 
+    entWriter.close()
     enumWriter.close()
 
     println("Finished.")
