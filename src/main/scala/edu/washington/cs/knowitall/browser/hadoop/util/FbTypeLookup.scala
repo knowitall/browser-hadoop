@@ -62,8 +62,8 @@ object FbTypeLookup {
   }
 
   def main(args: Array[String]): Unit = {
-    var entityFile = "/dev/null"
-    var enumFile = "/dev/null"
+    var entityFile = ""
+    var enumFile = ""
     val parser = new OptionParser() {
 
       arg("entityToTypeNumFile", "output file to contain entity to type enum data", { str => entityFile = str })
@@ -114,8 +114,8 @@ object FbTypeLookupGenerator {
 
   def main(args: Array[String]): Unit = {
 
-    var entityToTypeNumFile = "/dev/null"
-    var typeEnumFile = "/dev/null"
+    var entityToTypeNumFile = ""
+    var typeEnumFile = ""
 
     val parser = new OptionParser() {
 
