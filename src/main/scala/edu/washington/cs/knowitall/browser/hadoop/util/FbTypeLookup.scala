@@ -37,7 +37,7 @@ object FbTypeLookup {
   import FbTypeLookupGenerator.tabRegex
 
   def loadEntityFile(entityFile: String): Map[String, Seq[Int]] = {
-
+    System.err.println("Loading fb entity lookup map...")
     using(Source.fromFile(entityFile)) { source =>
       source.getLines.flatMap { line =>
         tabRegex.split(line) match {
@@ -49,7 +49,7 @@ object FbTypeLookup {
   }
 
   def loadEnumFile(enumFile: String): SortedMap[Int, String] = {
-
+    System.err.println("Loading type enumeration...")
     using(Source.fromFile(enumFile)) { source =>
       val elements = source.getLines.flatMap { line =>
         tabRegex.split(line) match {
@@ -70,9 +70,12 @@ object FbTypeLookup {
       arg("typeEnumFile", "output file to contain type enumeration", { str => enumFile = str })
     }
     if (!parser.parse(args)) return
+    
     val lookup = new FbTypeLookup(entityFile, enumFile)
 
-    Source.fromInputStream(System.in).getLines.foreach(line => lookup.getTypesForEntity(line))
+    val fbids = Seq("03gss12", "0260w54", "0260xrp", "02610rn", "02610t0")
+    
+    fbids.foreach(line => println("%s, %s".format(line, lookup.getTypesForEntity(line))))
   }
 }
 
