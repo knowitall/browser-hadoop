@@ -92,7 +92,7 @@ object FbTypeLookupGenerator {
     def lineFailure = { System.err.println("bad line: %s".format(line)); None }
 
     tabRegex.split(line) match {
-      case Array(rawEntity, rawTypes) => parseSplitLine(rawEntity, rawTypes)
+      case Array(rawEntity, rawTypes, _*) => parseSplitLine(rawEntity, rawTypes)
       case Array(rawEntity) => None // some entities don't seem to have any type info associated
       case _ => lineFailure
     }
@@ -155,8 +155,8 @@ object FbTypeLookupGenerator {
 
     val enumWriter = new PrintWriter(new FileWriter(typeEnumFile))
 
-    typesToInts.iterator.foreach {
-      case (typeInt, typeString) =>
+    typesToInts.iterator.toSeq.sortBy(_._2).foreach {
+      case (typeString, typeInt) =>
         enumWriter.println("%s\t%s".format(typeInt, typeString))
     }
 
