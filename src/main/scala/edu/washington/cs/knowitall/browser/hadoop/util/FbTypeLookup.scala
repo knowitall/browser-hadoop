@@ -138,7 +138,7 @@ object FbTypeLookupGenerator {
         typesToInts.getOrElseUpdate(typeString, { val next = nextTypeInt; nextTypeInt += 1; next })
       }.sorted
       val result = (parsedLine.entityFbid, typeInts)
-      println("adding %s".format(result))
+      
       result
     } toMap
 
