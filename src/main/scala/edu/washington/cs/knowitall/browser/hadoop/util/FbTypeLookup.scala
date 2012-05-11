@@ -132,24 +132,16 @@ object FbTypeLookupGenerator {
 
     println("Reading file...")
 
-    val entityToTypeIntMap = parsedLines.map { parsedLine =>
+    // convert maps to lists of entry pairs and serialize to disk.
+    val entWriter = new PrintWriter(new FileWriter(entityToTypeNumFile))
+    
+    parsedLines.foreach { parsedLine =>
 
       val typeInts = parsedLine.typeStrings.map { typeString =>
         typesToInts.getOrElseUpdate(typeString, { val next = nextTypeInt; nextTypeInt += 1; next })
       }.sorted
-      val result = (parsedLine.entityFbid, typeInts)
       
-      result
-    } toMap
-
-    println("Done building maps. Writing output...")
-
-    // convert maps to lists of entry pairs and serialize to disk.
-    val entWriter = new PrintWriter(new FileWriter(entityToTypeNumFile))
-
-    entityToTypeIntMap.iterator.foreach {
-      case (entityFbid, typeNums) =>
-        entWriter.println("%s\t%s".format(entityFbid, typeNums.mkString(",")))
+      entWriter.println("%s\t%s".format(parsedLine.entityFbid, typeInts.mkString(",")))
     }
 
     entWriter.flush()
