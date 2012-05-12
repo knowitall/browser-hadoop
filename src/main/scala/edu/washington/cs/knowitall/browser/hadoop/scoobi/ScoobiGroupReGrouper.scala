@@ -1,5 +1,7 @@
 package edu.washington.cs.knowitall.browser.hadoop.scoobi
 
+import scala.collection.JavaConversions._
+
 import com.nicta.scoobi.Scoobi._
 import com.nicta.scoobi.DList._
 import com.nicta.scoobi.DList
@@ -13,8 +15,14 @@ import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.Instance
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 
+import edu.washington.cs.knowitall.commonlib.Range
+import edu.washington.cs.knowitall.collection.immutable.Interval
+
 import edu.washington.cs.knowitall.extractor.conf.ReVerbConfFunction
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
+import edu.washington.cs.knowitall.nlp.extraction.ChunkedArgumentExtraction
+import edu.washington.cs.knowitall.nlp.extraction.ChunkedBinaryExtraction
+import edu.washington.cs.knowitall.nlp.ChunkedSentence
 
 object ScoobiGroupReGrouper {
   
@@ -22,9 +30,9 @@ object ScoobiGroupReGrouper {
     override def initialValue = new ReVerbConfFunction()
   }
 
-  var extrsProcessed = 0
+  private var extrsProcessed = 0
   
-  var groupsProcessed = 0
+  private var groupsProcessed = 0
 
   def main(args: Array[String]) = withHadoopArgs(args) { a =>
 
@@ -104,12 +112,34 @@ object ScoobiGroupReGrouper {
     * Tries to attach a conf to inst, if it doesn't already have one. If it fails, reports an error, but returns inst unchanged.
     */
   def tryAddConf(inst: Instance[ReVerbExtraction]): Instance[ReVerbExtraction] = {
+    val cbe = extrToCBE(inst.extraction)
     try {
-      val conf = confLocal.get().getConf(inst.extraction.source)
+      
+      val conf = confLocal.get().getConf(cbe)
       new Instance(inst.extraction, inst.corpus, conf)
     } catch {
-      case e: Exception => { e.printStackTrace; System.err.println(inst.extraction.source); inst }
+      case e: Exception => { e.printStackTrace; System.err.println(cbe); inst }
     }
   }
 
+  def extrToCBE(extr: ReVerbExtraction): ChunkedBinaryExtraction = {
+    
+    implicit def intervalToRange(interval: Interval): Range = new Range(interval.start, interval.length)
+    
+    val sentToks = extr.sentenceTokens
+    
+    // make the chunked sentence
+    val chunkedSentence = new ChunkedSentence(sentToks.map(_.string), sentToks.map(_.postag), sentToks.map(_.chunk))
+    // convert intervals to ranges
+   
+    // build relation
+    val rel = new ChunkedExtraction(chunkedSentence, extr.relInterval)
+    // build args
+    val arg1 = new ChunkedArgumentExtraction(chunkedSentence, extr.arg1Interval, rel)
+    val arg2 = new ChunkedArgumentExtraction(chunkedSentence, extr.arg2Interval, rel)
+    // build CBE
+    val cbe = new ChunkedBinaryExtraction(rel, arg1, arg2)
+    cbe
+  }
+  
 }

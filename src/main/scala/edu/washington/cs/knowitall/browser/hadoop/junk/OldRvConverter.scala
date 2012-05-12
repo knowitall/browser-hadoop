@@ -2,6 +2,7 @@ package edu.washington.cs.knowitall.browser.hadoop.junk
 
 import scopt.OptionParser
 import scala.io.Source
+import scala.collection.JavaConversions._
 
 import edu.washington.cs.knowitall.commonlib.Range
 import edu.washington.cs.knowitall.nlp.OpenNlpChunkedSentenceParser
@@ -10,6 +11,7 @@ import edu.washington.cs.knowitall.nlp.ChunkedSentence
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 
 import edu.washington.cs.knowitall.common.Timing._
+import edu.washington.cs.knowitall.collection.immutable.Interval
 
 import java.io.PrintStream
 
@@ -129,13 +131,16 @@ object OldRvConverter {
 
   private def buildExtraction(arg1Range: Range, relRange: Range, arg2Range: Range, sentence: ChunkedSentence, sourceUrl: String): Option[ReVerbExtraction] = {
    
+    implicit def rangeToInterval(range: Range): Interval = Interval.closed(range.getStart, range.getLastIndex)
+    
     try {
       // verification
       sentence.getTokens(arg1Range)
       sentence.getTokens(relRange)
       sentence.getTokens(arg2Range)
+      val sentenceTokens =  ReVerbExtraction.chunkedTokensFromLayers(sentence.getTokens.toIndexedSeq, sentence.getPosTags.toIndexedSeq, sentence.getChunkTags.toIndexedSeq)
       
-      Some(ReVerbExtraction.fromSentRanges(arg1Range, relRange, arg2Range, sentence, sourceUrl))
+      Some(ReVerbExtraction.fromSentAndIntervals(arg1Range, relRange, arg2Range, sentenceTokens, sourceUrl))
       
     } catch {
       case e: Exception => { e.printStackTrace(); None }

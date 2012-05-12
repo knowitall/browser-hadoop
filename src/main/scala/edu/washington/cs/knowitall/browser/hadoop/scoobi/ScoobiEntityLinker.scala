@@ -37,17 +37,17 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  */
 class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
   
-  var groupsProcessed = 0
-  var arg1sLinked = 0
-  var arg2sLinked = 0
+  private var groupsProcessed = 0
+  private var arg1sLinked = 0
+  private var arg2sLinked = 0
 
-  var hcArg1sLinked = 0
-  var hcArg2sLinked = 0
+  private var hcArg1sLinked = 0
+  private var hcArg2sLinked = 0
  
-  var hcArg1sTotal = 0
-  var hcArg2sTotal = 0
+  private var hcArg1sTotal = 0
+  private var hcArg2sTotal = 0
   
-  def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Seq[String]): Option[FreeBaseEntity] = {
+  def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Set[String]): Option[FreeBaseEntity] = {
     
     val tryEL = el.getBestFbidFromSources(arg, sources)
 
@@ -65,8 +65,9 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
   // these are used purely for counting statistics and not for determining what gets linked
   private val pronouns = Set("he", "she", "they", "them", "that", "this", "who", "whom", "i", "you", "him", "her", "we", "it", "the", "a", "an")
   private val badRel = Set("have", "is", "said")
-  
-  def highQualityTest(instances: Iterable[Instance[ReVerbExtraction]]) = {
+  // calling this method has nothing to due with the actual output of the entity linker
+  // once any doubt about the "fidelity" of my linker implementation has passed (now 5/12/2012), this method should die
+  private def highQualityTest(instances: Iterable[Instance[ReVerbExtraction]]) = {
     
     val confs = instances.map(_.confidence)
     
@@ -75,20 +76,17 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
     
     lazy val head = instances.head.extraction
     
-    lazy val arg1 = head.source.getArgument1
-    lazy val arg2 = head.source.getArgument2
+    lazy val arg1 = head.getTokens(head.arg1Interval)
+    lazy val arg2 = head.getTokens(head.arg2Interval)
     
-    lazy val arg1Tokens = arg1.getTokens
-    lazy val arg2Tokens = arg2.getTokens
+    def arg1HasPronoun = arg1.exists(tok => pronouns.contains(tok.string.toLowerCase))
+    def arg2HasPronoun = arg2.exists(tok => pronouns.contains(tok.string.toLowerCase))
     
-    def arg1HasPronoun = arg1Tokens.exists(tok => pronouns.contains(tok.toLowerCase))
-    def arg2HasPronoun = arg2Tokens.exists(tok => pronouns.contains(tok.toLowerCase))
+    lazy val rel = head.getTokens(head.relInterval)
+    def relBad = badRel.contains(rel.head.string.toLowerCase)
     
-    lazy val relTokens = head.source.getRelation.getTokens
-    def relBad = badRel.contains(relTokens.head.toLowerCase)
-    
-    lazy val arg1PosTags = arg1.getPosTags
-    lazy val arg2PosTags = arg1.getPosTags
+    lazy val arg1PosTags = arg1.map(_.postag)
+    lazy val arg2PosTags = arg2.map(_.postag)
     
     def arg1NN = arg1PosTags.length == 1 && (arg1PosTags.head.equals("NN") || arg1PosTags.head.equals("NNS"))
     def arg2NN = arg2PosTags.length == 1 && (arg2PosTags.head.equals("NN") || arg2PosTags.head.equals("NNS"))
@@ -106,7 +104,7 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
 
     val highQuality = highQualityTest(group.instances)
       
-    val sources = extrs.map(e => e.source.getSentence().getTokensAsString()).toSeq
+    val sources = extrs.map(e => e.sentenceTokens.map(_.string).mkString(" "))
 
     val arg1Entity = if (group.arg1Entity.isDefined) group.arg1Entity else getEntity(el, head.arg1Tokens, head, sources)
 

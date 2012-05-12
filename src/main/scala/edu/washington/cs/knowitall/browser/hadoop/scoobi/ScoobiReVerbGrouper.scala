@@ -40,27 +40,22 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  * code is run in the reducer.
  */
 class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
-
+ 
+  private var extrsProcessed = 0
+  private var groupsProcessed = 0
   
-  
-  var extrsProcessed = 0
-  var groupsProcessed = 0
-  
-  var largestGroup = 0
-
-
+  private var largestGroup = 0
 
   // returns an (arg1, rel, arg2) tuple of normalized string tokens
   def getNormalizedKey(extr: ReVerbExtraction): RVTuple = {
-    def pairs(arg: ChunkedExtraction) = arg.getTokens.toSeq.zip(arg.getPosTags.toSeq)
+    
+    val arg1Tokens = extr.getTokens(extr.arg1Interval).filter(!_.postag.equals("DT"))
+    val relTokens  =  extr.getTokens(extr.relInterval).filter(!_.postag.equals("DT"))
+    val arg2Tokens = extr.getTokens(extr.arg2Interval).filter(!_.postag.equals("DT"))
 
-    val arg1Pairs = pairs(extr.source.getArgument1).filter(!_._2.equals("DT"))
-    val relPairs = pairs(extr.source.getRelation).filter(!_._2.equals("DT"))
-    val arg2Pairs = pairs(extr.source.getArgument2).filter(!_._2.equals("DT"))
-
-    val arg1Norm = stemmer.stemAll(arg1Pairs)
-    val relNorm = stemmer.stemAll(relPairs)
-    val arg2Norm = stemmer.stemAll(arg2Pairs)
+    val arg1Norm = stemmer.stemAll(arg1Tokens.map(tok=>(tok.string, tok.postag)))
+    val relNorm =  stemmer.stemAll(relTokens.map(tok=>(tok.string, tok.postag)))
+    val arg2Norm = stemmer.stemAll(arg2Tokens.map(tok=>(tok.string, tok.postag)))
 
     RVTuple(arg1Norm.mkString(" ").toLowerCase, relNorm.mkString(" ").toLowerCase, arg2Norm.mkString(" ").toLowerCase)
   }
@@ -100,7 +95,7 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 
     if (!normTuple.toString.equals(key)) return failure("Key Mismatch: " + normTuple.toString + " != " + key)
 
-    val sources = extrs.map(e => e.source.getSentence().getTokensAsString()).toSeq
+    val sources = extrs.map(e => e.sentenceTokens.map(_.string).mkString(" "))
 
     val arg1Entity = None
 

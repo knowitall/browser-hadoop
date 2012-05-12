@@ -13,17 +13,23 @@ object GroupPrettyPrinter {
   def getPrettyGroup(group: ExtractionGroup[ReVerbExtraction]): String = {
     
     val head = group.instances.head.extraction
-    val source = head.source
+    val sources = group.instances.map(_.extraction.sentenceTokens).map(sent=>sent.map(_.string).mkString(" "))
     
-    val arg1 = source.getArgument1.getTokensAsString
-    val rel = source.getRelation.getTokensAsString
-    val arg2 = source.getArgument2.getTokensAsString
+    val arg1 = head.getTokens(head.arg1Interval).mkString(" ")
+    val rel = head.getTokens(head.relInterval).mkString(" ")
+    val arg2 = head.getTokens(head.arg2Interval).mkString(" ")
     
-    val arg1E = group.arg1Entity.getOrElse("none")
-    val arg2E = group.arg2Entity.getOrElse("none")
+    val arg1E = group.arg1Entity match {
+      case Some(entity) => (entity.name, entity.fbid).toString
+      case None => "none"
+    }
+    val arg2E = group.arg2Entity match {
+      case Some(entity) => (entity.name, entity.fbid).toString
+      case None => "none"
+    }
     
     val relFields = Seq(arg1, rel, arg2, arg1E, arg2E)
-    val allOutput = relFields ++ group.instances.map(_.extraction.source.getSentence.getTokensAsString)
+    val allOutput = relFields ++ sources
     
     allOutput.mkString("\t")
   }
