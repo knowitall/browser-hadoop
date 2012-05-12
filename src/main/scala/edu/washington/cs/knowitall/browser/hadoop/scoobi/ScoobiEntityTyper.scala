@@ -18,7 +18,7 @@ import edu.washington.cs.knowitall.browser.hadoop.util.FbTypeLookup
   * Does type lookup for freebase entities (fills in the argXTypes field in an extractionGroup)
   */
 object ScoobiEntityTyper {
-
+  
   val fbEntityToEnumFile = "/scratch/browser-freebase/fbEntityToEnum.txt"
   val fbTypeEnumFile = "/scratch/browser-freebase/fbTypeEnum.txt"
 
@@ -50,7 +50,11 @@ object ScoobiEntityTyper {
 
   def typeGroups(groupStrings: DList[String]): DList[String] = {
 
+    var groupsProcessed = 0
+    
     groupStrings.flatMap { groupString =>
+      groupsProcessed += 1
+      if (groupsProcessed % 100000 == 0) System.err.println("Groups processed: %s".format(groupsProcessed))
       val groupOption = ReVerbExtractionGroup.fromTabDelimited(groupString.split("\t"))._1
       groupOption match {
         case Some(group) => {

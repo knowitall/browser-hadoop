@@ -37,11 +37,16 @@ object FbTypeLookup {
   import FbTypeLookupGenerator.tabRegex
 
   def loadEntityFile(entityFile: String): Map[String, Seq[Int]] = {
+    var entriesLoaded = 0
     System.err.println("Loading fb entity lookup map...")
     using(Source.fromFile(entityFile)) { source =>
       source.getLines.flatMap { line =>
         tabRegex.split(line) match {
-          case Array(entity, typeInts) => Some((entity, commaRegex.split(typeInts).map(_.toInt).toSeq))
+          case Array(entity, typeInts) => {
+            entriesLoaded+=1
+            if (entriesLoaded % 1000000 == 0) System.err.println("Loaded %s entries".format(entriesLoaded))
+            Some((entity, commaRegex.split(typeInts).map(_.toInt).toSeq))
+          }
           case _ => { System.err.println("Bad entity line:%s".format(line)); None }
         }
       } toMap
