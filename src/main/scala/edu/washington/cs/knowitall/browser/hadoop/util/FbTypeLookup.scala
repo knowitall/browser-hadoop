@@ -41,7 +41,7 @@ class FbTypeLookup(val entityToTypeIntMap: Map[String, Seq[Int]], val typeIntToT
 @SerialVersionUID(1337L)
 case class FbPair(val entityName: String, val typeEnumInts: ArrayList[Int])
 // this is used as metadata to signify the last object in a serialized file of FbPairs
-case object FbPairEOF extends FbPair("This signifies EOF!!!", new ArrayList[Int](0))
+object FbPairEOF extends FbPair("This signifies EOF!!!", new ArrayList[Int](0))
 
 object FbTypeLookup {
 
