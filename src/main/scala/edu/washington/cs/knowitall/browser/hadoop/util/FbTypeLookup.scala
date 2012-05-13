@@ -51,11 +51,11 @@ object FbTypeLookup {
   def loadEntityFile(entityFile: String): Map[String, Seq[Int]] = {
     var entriesLoaded = 0
     System.err.println("Loading fb entity lookup map...")
-    using(new ObjectInputStream(new FileInputStream(entityFile))) { fbPairsInput =>
+    TreeMap.empty[String, Seq[Int]] ++ using(new ObjectInputStream(new FileInputStream(entityFile))) { fbPairsInput =>
       
       val fbPairs = fbPairsInput.readObject().asInstanceOf[LinkedList[FbPair]].iterator
       fbPairs.map(pair=>(pair.entityName, pair.typeEnumInts.toSeq))
-    } toMap
+    } 
   }
 
   def loadEnumFile(enumFile: String): SortedMap[Int, String] = {
