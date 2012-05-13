@@ -41,7 +41,7 @@ class FbTypeLookup(val entityToTypeIntMap: Map[String, Seq[Int]], val typeIntToT
 @SerialVersionUID(1337L)
 case class FbPair(val entityName: String, val typeEnumInts: ArrayList[Int])
 // this is used as metadata to signify the last object in a serialized file of FbPairs
-//case object FbPairEOF extends FbPair("This signifies EOF!!!", new ArrayList[Int](0))
+case object FbPairEOF extends FbPair("This signifies EOF!!!", new ArrayList[Int](0))
 
 object FbTypeLookup {
 
@@ -51,11 +51,12 @@ object FbTypeLookup {
   def loadEntityFile(entityFile: String): Map[String, Seq[Int]] = {
     var entriesLoaded = 0
     System.err.println("Loading fb entity lookup map...")
-    TreeMap.empty[String, Seq[Int]] ++ using(new ObjectInputStream(new FileInputStream(entityFile))) { fbPairsInput =>
+    val fbPairsInput = new ObjectInputStream(new FileInputStream(entityFile))
       
-      val fbPairs = fbPairsInput.readObject().asInstanceOf[LinkedList[FbPair]].iterator
-      fbPairs.map(pair=>(pair.entityName, pair.typeEnumInts.toSeq))
-    } 
+    val fbPairs = Iterator.continually(fbPairsInput.readObject().asInstanceOf[FbPair]).takeWhile(!FbPairEOF.equals(_))
+    val entityMap = TreeMap.empty[String, Seq[Int]] ++ fbPairs.map(pair=>(pair.entityName, pair.typeEnumInts.toSeq))
+    fbPairsInput.close()
+    entityMap
   }
 
   def loadEnumFile(enumFile: String): SortedMap[Int, String] = {
@@ -146,8 +147,8 @@ object FbTypeLookupGenerator {
     println("Reading file...")
 
     // convert maps to lists of entry pairs and serialize to disk.
-    val entityList = new LinkedList[FbPair]()
     
+    val entityOutputStream = new ObjectOutputStream(new FileOutputStream(entityToTypeNumFile))
     parsedLines.foreach { parsedLine =>
 
       val typeInts = parsedLine.typeStrings.map { typeString =>
@@ -157,13 +158,13 @@ object FbTypeLookupGenerator {
       val enumInts = new ArrayList(typeInts)
       val fbPair = FbPair(parsedLine.entityFbid, enumInts)
       
-      entityList.add(fbPair)
+      entityOutputStream.writeObject(fbPair)
       linesDone += 1;
       if (linesDone % 100000 == 0) System.err.println("Lines done: %s".format(linesDone))
     }
     
-    val entityOutputStream = new ObjectOutputStream(new FileOutputStream(entityToTypeNumFile))
-    entityOutputStream.writeObject(entityList)
+    
+    entityOutputStream.writeObject(FbPairEOF)
     entityOutputStream.flush()
     entityOutputStream.close()
 
