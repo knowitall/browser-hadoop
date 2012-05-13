@@ -49,11 +49,14 @@ object FbTypeLookup {
   import FbTypeLookupGenerator.tabRegex
 
   def loadEntityFile(entityFile: String): Map[String, Seq[Int]] = {
-    var entriesLoaded = 0
     System.err.println("Loading fb entity lookup map...")
     val fbPairsInput = new ObjectInputStream(new FileInputStream(entityFile))
-      
-    val fbPairs = Iterator.continually(fbPairsInput.readObject().asInstanceOf[FbPair]).takeWhile(!FbPairEOF.equals(_))
+    var entriesLoaded = 0
+    val fbPairs = Iterator.continually {
+      entriesLoaded+=0
+      if (entriesLoaded % 100000 == 0) System.err.println("Loaded %s entries.".format(entriesLoaded))
+      fbPairsInput.readObject().asInstanceOf[FbPair] 
+    }.takeWhile(!FbPairEOF.equals(_))
     val entityMap = TreeMap.empty[String, Seq[Int]] ++ fbPairs.map(pair=>(pair.entityName, pair.typeEnumInts.toSeq))
     fbPairsInput.close()
     entityMap
