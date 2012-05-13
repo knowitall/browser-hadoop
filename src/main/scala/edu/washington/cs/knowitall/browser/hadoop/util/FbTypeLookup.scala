@@ -8,10 +8,15 @@ import scala.collection.immutable.SortedMap
 import scala.collection.immutable.TreeMap
 
 import java.io.File
-import java.io.FileWriter
+import java.io.FileOutputStream
+import java.io.ObjectOutputStream
+import java.io.FileInputStream
+import java.io.ObjectInputStream
 import java.io.PrintWriter
 
 import scopt.OptionParser
+
+import java.util.ArrayList
 
 import edu.washington.cs.knowitall.common.Resource.using
 
@@ -31,6 +36,12 @@ class FbTypeLookup(val entityToTypeIntMap: Map[String, Seq[Int]], val typeIntToT
   }
 }
 
+/** Convenience struct for helping serialize the lookup table to disk .. */
+@SerialVersionUID(1337L)
+case class FbPair(val entityName: String, val typeEnumInts: ArrayList[Int])
+// this is used as metadata to signify the last object in a serialized file of FbPairs
+case object FbPairEOF extends FbPair("This signifies EOF!!!", new ArrayList[Int](0))
+
 object FbTypeLookup {
 
   import FbTypeLookupGenerator.commaRegex
@@ -39,18 +50,11 @@ object FbTypeLookup {
   def loadEntityFile(entityFile: String): Map[String, Seq[Int]] = {
     var entriesLoaded = 0
     System.err.println("Loading fb entity lookup map...")
-    using(Source.fromFile(entityFile)) { source =>
-      source.getLines.flatMap { line =>
-        tabRegex.split(line) match {
-          case Array(entity, typeInts) => {
-            entriesLoaded+=1
-            if (entriesLoaded % 1000000 == 0) System.err.println("Loaded %s entries".format(entriesLoaded))
-            Some((entity, commaRegex.split(typeInts).map(_.toInt).toSeq))
-          }
-          case _ => { System.err.println("Bad entity line:%s".format(line)); None }
-        }
-      } toMap
-    }
+    using(new ObjectInputStream(new FileInputStream(entityFile))) { fbPairsInput =>
+      
+      val fbPairs = Iterator.continually(fbPairsInput.readObject().asInstanceOf[FbPair]).takeWhile(!FbPairEOF.equals(_))
+      fbPairs.map(pair=>(pair.entityName, pair.typeEnumInts.toSeq))
+    } toMap
   }
 
   def loadEnumFile(enumFile: String): SortedMap[Int, String] = {
@@ -141,7 +145,7 @@ object FbTypeLookupGenerator {
     println("Reading file...")
 
     // convert maps to lists of entry pairs and serialize to disk.
-    val entWriter = new PrintWriter(new FileWriter(entityToTypeNumFile))
+    val entityOutputStream = new ObjectOutputStream(new FileOutputStream(entityToTypeNumFile))
     
     parsedLines.foreach { parsedLine =>
 
@@ -149,20 +153,25 @@ object FbTypeLookupGenerator {
         typesToInts.getOrElseUpdate(typeString, { val next = nextTypeInt; nextTypeInt += 1; next })
       }.sorted
       
-      entWriter.println("%s\t%s".format(parsedLine.entityFbid, typeInts.mkString(",")))
+      val enumInts = new ArrayList(typeInts)
+      val fbPair = FbPair(parsedLine.entityFbid, enumInts)
+      
+      entityOutputStream.writeObject(fbPair)
     }
+    // INSERT END OF FILE IDENTIFIER
+    entityOutputStream.writeObject(FbPairEOF)
+    
+    entityOutputStream.flush()
+    entityOutputStream.close()
 
-    entWriter.flush()
-    entWriter.close()
-
-    val enumWriter = new PrintWriter(new FileWriter(typeEnumFile))
+    val enumWriter = new PrintWriter(typeEnumFile)
 
     typesToInts.iterator.toSeq.sortBy(_._2).foreach {
       case (typeString, typeInt) =>
         enumWriter.println("%s\t%s".format(typeInt, typeString))
     }
 
-    entWriter.close()
+    enumWriter.flush()
     enumWriter.close()
 
     println("Finished.")
