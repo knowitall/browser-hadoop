@@ -53,7 +53,7 @@ object FbTypeLookup {
     val fbPairsInput = new ObjectInputStream(new FileInputStream(entityFile))
     var entriesLoaded = 0
     val fbPairs = Iterator.continually {
-      entriesLoaded+=0
+      entriesLoaded+=1
       if (entriesLoaded % 100000 == 0) System.err.println("Loaded %s entries.".format(entriesLoaded))
       fbPairsInput.readObject().asInstanceOf[FbPair] 
     }.takeWhile(!FbPairEOF.equals(_))
