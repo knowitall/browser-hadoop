@@ -54,7 +54,7 @@ object FbTypeLookup {
     var entriesLoaded = 0
     val fbPairs = Iterator.continually {
       entriesLoaded+=1
-      if (entriesLoaded % 100000 == 0) System.err.println("Loaded %s entries.".format(entriesLoaded))
+      if (entriesLoaded % 1000000 == 0) System.err.println("Loaded %s entries.".format(entriesLoaded))
       fbPairsInput.readObject().asInstanceOf[FbPair] 
     }.takeWhile(!FbPairEOF.equals(_))
     val entityMap = TreeMap.empty[String, Seq[Int]] ++ fbPairs.map(pair=>(pair.entityName, pair.typeEnumInts.toSeq))

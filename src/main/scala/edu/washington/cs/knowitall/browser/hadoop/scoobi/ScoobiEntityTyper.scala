@@ -22,11 +22,9 @@ object ScoobiEntityTyper {
   val fbEntityToEnumFile = "/scratch/browser-freebase/fbEntityToEnum.obj"
   val fbTypeEnumFile = "/scratch/browser-freebase/fbTypeEnum.txt"
 
-  val fbLookupLocal = new ThreadLocal[FbTypeLookup]() { override def initialValue() = new FbTypeLookup(fbEntityToEnumFile, fbTypeEnumFile) }
+  private lazy val fbLookupTable = new FbTypeLookup(fbEntityToEnumFile, fbTypeEnumFile)
 
   def typeSingleGroup[E <: Extraction](group: ExtractionGroup[E]): ExtractionGroup[E] = {
-
-    val fbLookupTable = fbLookupLocal.get
 
     val arg1Types = group.arg1Entity match {
       case Some(entity) => fbLookupTable.getTypesForEntity(entity.fbid).map(FreeBaseType(_))

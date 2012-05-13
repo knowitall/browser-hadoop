@@ -67,7 +67,7 @@
 		<dependency>
 			<groupId>edu.washington.cs.knowitall</groupId>
 			<artifactId>common-scala</artifactId>
-			<version>1.0.1</version>
+			<version>1.0.3</version>
 		</dependency>
 		<dependency>
 			<groupId>edu.washington.cs.knowitall</groupId>
