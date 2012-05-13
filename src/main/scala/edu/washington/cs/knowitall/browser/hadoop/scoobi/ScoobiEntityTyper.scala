@@ -19,7 +19,7 @@ import edu.washington.cs.knowitall.browser.hadoop.util.FbTypeLookup
   */
 object ScoobiEntityTyper {
   
-  val fbEntityToEnumFile = "/scratch/browser-freebase/fbEntityToEnum.txt"
+  val fbEntityToEnumFile = "/scratch/browser-freebase/fbEntityToEnum.obj"
   val fbTypeEnumFile = "/scratch/browser-freebase/fbTypeEnum.txt"
 
   val fbLookupLocal = new ThreadLocal[FbTypeLookup]() { override def initialValue() = new FbTypeLookup(fbEntityToEnumFile, fbTypeEnumFile) }
