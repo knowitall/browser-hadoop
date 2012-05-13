@@ -14,54 +14,72 @@ import java.io.FileInputStream
 import java.io.ObjectInputStream
 import java.io.PrintWriter
 
+import org.apache.lucene.document.Document
+import org.apache.lucene.document.Field
+import org.apache.lucene.document.Field.Store
+import org.apache.lucene.document.Field.Index
+import org.apache.lucene.index.IndexWriter
+import org.apache.lucene.util.Version
+import org.apache.lucene.index.IndexWriterConfig
+import org.apache.lucene.index.Term
+import org.apache.lucene.index.IndexReader
+import org.apache.lucene.analysis.WhitespaceAnalyzer
+import org.apache.lucene.store.FSDirectory
+import org.apache.lucene.search.IndexSearcher
+import org.apache.lucene.search.TermQuery
+
+import org.apache.lucene.queryParser.QueryParser
+
 import scopt.OptionParser
 
 import java.util.ArrayList
 import java.util.LinkedList
+import java.io.File
 
 import edu.washington.cs.knowitall.common.Resource.using
 
-class FbTypeLookup(val entityToTypeIntMap: Map[String, Seq[Int]], val typeIntToTypeStringMap: Map[Int, String]) {
+class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[Int, String]) {
   // typeIntToTypeStringMap could probably just be an indexedSeq for a slight performance gain,
   // but then you have to deal with the chance that some int isn't in the enumeration separately.
-
-  def this(entityFile: String, typeEnumFile: String) = this(FbTypeLookup.loadEntityFile(entityFile), FbTypeLookup.loadEnumFile(typeEnumFile))
+  // delete this if this class actually works: private val queryParser = new QueryParser(Version.LUCENE_36, "fbid", new WhitespaceAnalyzer(Version.LUCENE_36))
+  
+  def this(indexPath: String, typeEnumFile: String) = this(FbTypeLookup.loadIndex(indexPath), FbTypeLookup.loadEnumFile(typeEnumFile))
 
   /** please strip off the /m/ first. */
   def getTypesForEntity(entityFbid: String): Seq[String] = {
-
-    entityToTypeIntMap.get(entityFbid) match {
-      case Some(typeInts) => typeInts.flatMap(typeInt => typeIntToTypeStringMap.get(typeInt))
-      case None => Nil
-    }
+     val query = new TermQuery(new Term("fbid", entityFbid))
+     val hits = searcher.search(query, null, 10)
+     hits.scoreDocs.map(_.doc).map(searcher.doc(_)).flatMap { doc =>
+       val fbid = doc.get("fbid")
+       require(fbid.equals(entityFbid))
+       val typeEnumInts = doc.get("types").split(",").map(_.toInt)
+       typeEnumInts.flatMap(typeIntToTypeStringMap.get(_))
+     }
   }
 }
 
 /** Convenience struct for helping serialize the lookup table to disk .. */
 @SerialVersionUID(1337L)
-case class FbPair(val entityName: String, val typeEnumInts: ArrayList[Int])
-// this is used as metadata to signify the last object in a serialized file of FbPairs
-object FbPairEOF extends FbPair("This signifies EOF!!!", new ArrayList[Int](0))
+case class FbPair(val entityFbid: String, val typeEnumInts: ArrayList[Int]) {
+  def toDocument: Document = {
+    val doc = new Document()
+    doc.add(new Field("fbid", entityFbid, Store.YES, Index.NOT_ANALYZED))
+    doc.add(new Field("types", typeEnumInts.mkString(","), Store.YES, Index.NO))
+    doc
+  }
+}
 
 object FbTypeLookup {
 
   import FbTypeLookupGenerator.commaRegex
   import FbTypeLookupGenerator.tabRegex
-
-  def loadEntityFile(entityFile: String): Map[String, Seq[Int]] = {
-    System.err.println("Loading fb entity lookup map...")
-    val fbPairsInput = new ObjectInputStream(new FileInputStream(entityFile))
-    var entriesLoaded = 0
-    val fbPairs = Iterator.continually {
-      entriesLoaded+=1
-      if (entriesLoaded % 1000000 == 0) System.err.println("Loaded %s entries.".format(entriesLoaded))
-      fbPairsInput.readObject().asInstanceOf[FbPair] 
-    }.takeWhile(!FbPairEOF.equals(_))
-    val entityMap = TreeMap.empty[String, Seq[Int]] ++ fbPairs.map(pair=>(pair.entityName, pair.typeEnumInts.toSeq))
-    fbPairsInput.close()
-    entityMap
+  
+  def loadIndex(path: String): IndexSearcher = {
+    val dir = FSDirectory.open(new File(path))
+    val indexReader = IndexReader.open(dir, true)
+    new IndexSearcher(indexReader)
   }
-
+  
   def loadEnumFile(enumFile: String): SortedMap[Int, String] = {
     System.err.println("Loading type enumeration...")
     using(Source.fromFile(enumFile)) { source =>
@@ -136,7 +154,7 @@ object FbTypeLookupGenerator {
 
     val parser = new OptionParser() {
 
-      arg("entityToTypeNumFile", "output file to contain entity to type enum data", { str => entityToTypeNumFile = str })
+      arg("entityToTypeNumFile", "output path for lucene index", { str => entityToTypeNumFile = str })
       arg("typeEnumFile", "output file to contain type enumeration", { str => typeEnumFile = str })
     }
 
@@ -151,7 +169,7 @@ object FbTypeLookupGenerator {
 
     // convert maps to lists of entry pairs and serialize to disk.
     
-    val entityOutputStream = new ObjectOutputStream(new FileOutputStream(entityToTypeNumFile))
+    val indexWriter = getIndexWriter(entityToTypeNumFile)
     parsedLines.foreach { parsedLine =>
 
       val typeInts = parsedLine.typeStrings.map { typeString =>
@@ -161,15 +179,12 @@ object FbTypeLookupGenerator {
       val enumInts = new ArrayList(typeInts)
       val fbPair = FbPair(parsedLine.entityFbid, enumInts)
       
-      entityOutputStream.writeObject(fbPair)
+      indexWriter.addDocument(fbPair.toDocument)
       linesDone += 1;
       if (linesDone % 100000 == 0) System.err.println("Lines done: %s".format(linesDone))
     }
     
-    
-    entityOutputStream.writeObject(FbPairEOF)
-    entityOutputStream.flush()
-    entityOutputStream.close()
+    indexWriter.close()
 
     val enumWriter = new PrintWriter(typeEnumFile)
 
@@ -182,5 +197,14 @@ object FbTypeLookupGenerator {
     enumWriter.close()
 
     println("Finished.")
+  }
+  
+  private def getIndexWriter(path: String): IndexWriter = {
+    val analyzer = new WhitespaceAnalyzer(Version.LUCENE_36)
+    val config = new IndexWriterConfig(Version.LUCENE_36, analyzer)
+    val dir = FSDirectory.open(new File(path))
+    val writer = new IndexWriter(dir, config)
+    writer.setInfoStream(System.err)
+    writer
   }
 }
