@@ -41,8 +41,8 @@ object ScoobiEntityTyper {
       group.arg2Norm,
       group.arg1Entity,
       group.arg2Entity,
-      arg1Types,
-      arg2Types,
+      arg1Types.toSet,
+      arg2Types.toSet,
       group.instances)
   }
 

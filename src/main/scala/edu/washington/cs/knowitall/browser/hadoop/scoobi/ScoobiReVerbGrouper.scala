@@ -112,8 +112,8 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
       normTuple.arg2,
       arg1Entity,
       arg2Entity,
-      Seq.empty[FreeBaseType],
-      Seq.empty[FreeBaseType],
+      Set.empty[FreeBaseType],
+      Set.empty[FreeBaseType],
       instances)
 
     Some(newGroup)
