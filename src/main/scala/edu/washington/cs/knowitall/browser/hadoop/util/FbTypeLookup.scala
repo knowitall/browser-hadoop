@@ -28,8 +28,6 @@ import org.apache.lucene.store.FSDirectory
 import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.search.TermQuery
 
-import org.apache.lucene.queryParser.QueryParser
-
 import scopt.OptionParser
 
 import java.util.ArrayList
@@ -41,7 +39,6 @@ import edu.washington.cs.knowitall.common.Resource.using
 class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[Int, String]) {
   // typeIntToTypeStringMap could probably just be an indexedSeq for a slight performance gain,
   // but then you have to deal with the chance that some int isn't in the enumeration separately.
-  // delete this if this class actually works: private val queryParser = new QueryParser(Version.LUCENE_36, "fbid", new WhitespaceAnalyzer(Version.LUCENE_36))
   
   def this(indexPath: String, typeEnumFile: String) = this(FbTypeLookup.loadIndex(indexPath), FbTypeLookup.loadEnumFile(typeEnumFile))
 
