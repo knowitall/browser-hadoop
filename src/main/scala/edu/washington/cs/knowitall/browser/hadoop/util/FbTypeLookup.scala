@@ -119,6 +119,7 @@ object FbTypeLookupGenerator {
   val tabRegex = "\t".r
   val commaRegex = ",".r
   val fbidPrefixRegex = "/m/".r
+  val userTypeRegex = "^/user/".r
 
   case class ParsedLine(entityFbid: String, typeStrings: Seq[String])
 
@@ -143,8 +144,10 @@ object FbTypeLookupGenerator {
 
     // split the rawTypes by commas
     val splitTypes = commaRegex.split(rawTypes)
+    // filter out types that start with /user/
+    val typesNoUser = splitTypes.filter(!userTypeRegex.findFirstIn(_).isDefined)
 
-    Some(ParsedLine(trimmedEntity, splitTypes))
+    Some(ParsedLine(trimmedEntity, typesNoUser))
   }
 
   def main(args: Array[String]): Unit = {
