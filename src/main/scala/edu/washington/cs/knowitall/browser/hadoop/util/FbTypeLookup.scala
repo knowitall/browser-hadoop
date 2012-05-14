@@ -76,7 +76,7 @@ object FbTypeLookup {
   
   def loadIndex(path: String): IndexSearcher = {
     val dir = FSDirectory.open(new File(path))
-    val indexReader = IndexReader.open(dir, true)
+    val indexReader = IndexReader.open(dir)
     new IndexSearcher(indexReader)
   }
   

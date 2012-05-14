@@ -19,10 +19,10 @@ import edu.washington.cs.knowitall.browser.hadoop.util.FbTypeLookup
   */
 object ScoobiEntityTyper {
   
-  val fbEntityToEnumFile = "/scratch/browser-freebase/fbEntityToEnum.obj"
+  val fbEntityIndex = "/scratch/browser-freebase/type-lookup-index/"
   val fbTypeEnumFile = "/scratch/browser-freebase/fbTypeEnum.txt"
 
-  private lazy val fbLookupTable = new FbTypeLookup(fbEntityToEnumFile, fbTypeEnumFile)
+  private lazy val fbLookupTable = new FbTypeLookup(fbEntityIndex, fbTypeEnumFile)
 
   def typeSingleGroup[E <: Extraction](group: ExtractionGroup[E]): ExtractionGroup[E] = {
 
