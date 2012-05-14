@@ -49,7 +49,7 @@ class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[
      hits.scoreDocs.map(_.doc).map(searcher.doc(_)).flatMap { doc =>
        val fbid = doc.get("fbid")
        require(fbid.equals(entityFbid))
-       val typeEnumInts = doc.get("types").split(",").map(_.toInt)
+       val typeEnumInts = doc.get("types").split(",").filter(!_.isEmpty).map(_.toInt)
        typeEnumInts.flatMap(typeIntToTypeStringMap.get(_))
      }
   }
