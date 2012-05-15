@@ -14,10 +14,14 @@ import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.browser.hadoop.util.FbTypeLookup
 
+import edu.washington.cs.knowitall.common.Timing
+
 /**
   * Does type lookup for freebase entities (fills in the argXTypes field in an extractionGroup)
   */
 object ScoobiEntityTyper {
+  
+  val minCompletionSeconds = 90
   
   import ScoobiEntityLinker.getRandomElement
   
@@ -74,8 +78,12 @@ object ScoobiEntityTyper {
 
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
 
-    val typedGroups: DList[String] = typeGroups(lines)
+    val (completionTime, typedGroups): (Long, DList[String]) = Timing.time(typeGroups(lines))
 
+    val remainingSeconds = minCompletionSeconds - completionTime / Timing.Seconds.divisor
+    
+    Thread.sleep(remainingSeconds * 1000)
+    
     DList.persist(TextOutput.toTextFile(typedGroups, outputPath + "/"));
   }
 }
