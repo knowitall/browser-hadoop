@@ -19,8 +19,8 @@ import edu.washington.cs.knowitall.browser.hadoop.util.FbTypeLookup
   */
 object ScoobiEntityTyper {
   
-  val fbEntityIndex = "/scratch/browser-freebase/type-lookup-index/"
-  val fbTypeEnumFile = "/scratch/browser-freebase/fbTypeEnum.txt"
+  lazy val fbEntityIndex = ScoobiEntityLinker.getScratch+"browser-freebase/type-lookup-index/"
+  lazy val fbTypeEnumFile = "/scratch/browser-freebase/fbTypeEnum.txt"
 
   private lazy val fbLookupTable = new FbTypeLookup(fbEntityIndex, fbTypeEnumFile)
 
