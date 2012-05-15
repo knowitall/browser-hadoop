@@ -123,7 +123,7 @@ object ScoobiEntityLinker {
 
     for (i <- 1 to 4) yield {
       val numStr = if (i == 1) "" else i.toString
-      "/scratch%s/"+pathAfterScratch
+      "/scratch%s/".format(i)+pathAfterScratch
     }
   }
 
