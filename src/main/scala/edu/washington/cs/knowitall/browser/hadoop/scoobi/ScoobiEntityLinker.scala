@@ -30,12 +30,16 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedArgumentExtraction
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
 
 /**
- * A mapper + reducer job that
+ * A mapper job that
  * takes tab-delimited ReVerbExtractions as input, groups them by a normalization key, and
- * then constructs ExtractionGroup[ReVerbExtraction] from the reducer input. The Entity Linker
- * code is run in the reducer.
+ * then constructs ExtractionGroup[ReVerbExtraction] from the reducer input.
+ * linkers is a Seq --- this is because each points to a different lucene index on one of the four of
+ * reliable's scratch disks, which helps balance the load, allowing you to run more of these 
+ * as hadoop map tasks
  */
-class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
+class ScoobiEntityLinker(val linkers: Seq[EntityLinker], val stemmer: TaggedStemmer) {
+  
+  import ScoobiEntityLinker.getRandomElement
   
   private var groupsProcessed = 0
   private var arg1sLinked = 0
@@ -58,42 +62,6 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
     else None
   }
   
-  /**
-   * A hack to try to help provide statistics for only "high quality extractions", approximately
-   * along the lines of what was done at reverb.cs.washington.edu for the high quality clueweb data.
-   */
-  // these are used purely for counting statistics and not for determining what gets linked
-  private val pronouns = Set("he", "she", "they", "them", "that", "this", "who", "whom", "i", "you", "him", "her", "we", "it", "the", "a", "an")
-  private val badRel = Set("have", "is", "said")
-  // calling this method has nothing to due with the actual output of the entity linker
-  // once any doubt about the "fidelity" of my linker implementation has passed (now 5/12/2012), this method should die
-  private def highQualityTest(instances: Iterable[Instance[ReVerbExtraction]]) = {
-    
-    val confs = instances.map(_.confidence)
-    
-    val lowConf = confs.min < 0.85
-    def tooSmall = instances.size == 1
-    
-    lazy val head = instances.head.extraction
-    
-    lazy val arg1 = head.getTokens(head.arg1Interval)
-    lazy val arg2 = head.getTokens(head.arg2Interval)
-    
-    def arg1HasPronoun = arg1.exists(tok => pronouns.contains(tok.string.toLowerCase))
-    def arg2HasPronoun = arg2.exists(tok => pronouns.contains(tok.string.toLowerCase))
-    
-    lazy val rel = head.getTokens(head.relInterval)
-    def relBad = badRel.contains(rel.head.string.toLowerCase)
-    
-    lazy val arg1PosTags = arg1.map(_.postag)
-    lazy val arg2PosTags = arg2.map(_.postag)
-    
-    def arg1NN = arg1PosTags.length == 1 && (arg1PosTags.head.equals("NN") || arg1PosTags.head.equals("NNS"))
-    def arg2NN = arg2PosTags.length == 1 && (arg2PosTags.head.equals("NN") || arg2PosTags.head.equals("NNS"))
-    
-    !(lowConf || tooSmall || arg1HasPronoun || arg2HasPronoun || relBad || arg1NN || arg2NN)
-  }
-
   def linkEntities(group: ExtractionGroup[ReVerbExtraction]): ExtractionGroup[ReVerbExtraction] = {
 
     groupsProcessed += 1
@@ -101,29 +69,22 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
     val extrs = group.instances.map(_.extraction)
 
     val head = extrs.head
-
-    val highQuality = highQualityTest(group.instances)
       
     val sources = extrs.map(e => e.sentenceTokens.map(_.string).mkString(" "))
-
-    val arg1Entity = if (group.arg1Entity.isDefined) group.arg1Entity else getEntity(el, head.arg1Tokens, head, sources)
+    // choose a random linker to distribute the load more evenly across the cluster
+    val randomLinker = getRandomElement(linkers)
+    val arg1Entity = if (group.arg1Entity.isDefined) group.arg1Entity else getEntity(randomLinker, head.arg1Tokens, head, sources)
 
     if (arg1Entity.isDefined) {
       arg1sLinked += 1
-      if (highQuality) hcArg1sLinked += 1
     }
     
-    val arg2Entity = if (group.arg2Entity.isDefined) group.arg2Entity else getEntity(el, head.arg2Tokens, head, sources)
+    val arg2Entity = if (group.arg2Entity.isDefined) group.arg2Entity else getEntity(randomLinker, head.arg2Tokens, head, sources)
     
     if (arg2Entity.isDefined) {
       arg2sLinked += 1
-      if (highQuality) hcArg2sLinked += 1
     }
     
-    if (highQuality) {
-      hcArg1sTotal += 1
-      hcArg2sTotal += 1
-    }
     
     val newGroup = new ExtractionGroup(
       group.arg1Norm,
@@ -135,11 +96,7 @@ class ScoobiEntityLinker(val el: EntityLinker, val stemmer: TaggedStemmer) {
       group.arg2Types,
       group.instances.map(inst => new Instance(inst.extraction, inst.corpus, inst.confidence)))
 
-    if (groupsProcessed % 10000 == 0) {
-      System.err.println("Groups processed: %d".format(groupsProcessed))
-      System.err.println("Arg1s Linked: %d, High-conf Arg1s Linked: %d, High-conf Arg1s Total: %d".format(arg1sLinked, hcArg1sLinked, hcArg1sTotal))
-      System.err.println("Arg2s Linked: %d, High-conf Arg2s Linked: %d, High-conf Arg2s Total: %d".format(arg2sLinked, hcArg2sLinked, hcArg2sTotal))
-    }
+    if (groupsProcessed % 10000 == 0) System.err.println("Groups processed: %d, Arg1s Linked: %d, Arg2s Linked: %d".format(groupsProcessed, arg1sLinked, arg2sLinked))
     
     newGroup
   }
@@ -162,18 +119,11 @@ object ScoobiEntityLinker {
   val linkers = new ThreadLocal[ScoobiEntityLinker] { override def initialValue = delayedInitEntityLinker }
     
   /** Get a random scratch directory on an RV node. */
-  def getScratch: String = {
+  def getScratch(pathAfterScratch: String): Seq[String] = {
 
-    try {
-      val num = (scala.math.abs(random.nextInt) % 4) + 1
-      if (num == 1) return "/scratch/"
-      else return "/scratch%s/".format(num.toString)
-    } catch {
-      case e: NumberFormatException => {
-        e.printStackTrace()
-        System.err.println("Error getting index")
-        return "/scratch/"
-      }
+    for (i <- 1 to 4) yield {
+      val numStr = if (i == 1) "" else i.toString
+      "/scratch%s/"+pathAfterScratch
     }
   }
 
@@ -185,9 +135,11 @@ object ScoobiEntityLinker {
     
     Thread.sleep(randWaitMs.toInt)
         
-    val el = new EntityLinker(getScratch + baseIndex)
+    val el = getScratch(baseIndex).map(index=>new EntityLinker(index))
     new ScoobiEntityLinker(el, TaggedStemmer.getInstance)
   }
+   
+  def getRandomElement[T](seq: Seq[T]): T = seq(Random.nextInt(seq.size))
   
   def linkGroups(groups: DList[String]): DList[String] = {
     
