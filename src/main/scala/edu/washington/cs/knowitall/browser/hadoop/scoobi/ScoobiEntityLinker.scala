@@ -36,6 +36,8 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  * linkers is a Seq --- this is because each points to a different lucene index on one of the four of
  * reliable's scratch disks, which helps balance the load, allowing you to run more of these 
  * as hadoop map tasks
+ * 
+ * Also adds types - entityTyper does not have to be run as a separate job
  */
 class ScoobiEntityLinker(val linkers: Seq[EntityLinker], val stemmer: TaggedStemmer) {
   
@@ -98,7 +100,9 @@ class ScoobiEntityLinker(val linkers: Seq[EntityLinker], val stemmer: TaggedStem
 
     if (groupsProcessed % 10000 == 0) System.err.println("Groups processed: %d, Arg1s Linked: %d, Arg2s Linked: %d".format(groupsProcessed, arg1sLinked, arg2sLinked))
     
-    newGroup
+    // Do type lookup (relatively expensive)
+    val typedGroup = ScoobiEntityTyper.typeSingleGroup(newGroup)
+    typedGroup
   }
 
 }
@@ -123,7 +127,7 @@ object ScoobiEntityLinker {
 
     for (i <- 1 to 4) yield {
       val numStr = if (i == 1) "" else i.toString
-      "/scratch%s/".format(i)+pathAfterScratch
+      "/scratch%s/".format(numStr)+pathAfterScratch
     }
   }
 
