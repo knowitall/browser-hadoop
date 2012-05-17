@@ -37,6 +37,9 @@ import java.io.File
 import edu.washington.cs.knowitall.common.Resource.using
 
 class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[Int, String]) {
+  
+  import FbTypeLookup.badTypes
+  
   // typeIntToTypeStringMap could probably just be an indexedSeq for a slight performance gain,
   // but then you have to deal with the chance that some int isn't in the enumeration separately.
   
@@ -46,12 +49,14 @@ class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[
   def getTypesForEntity(entityFbid: String): Seq[String] = {
      val query = new TermQuery(new Term("fbid", entityFbid))
      val hits = searcher.search(query, null, 10)
-     hits.scoreDocs.map(_.doc).map(searcher.doc(_)).flatMap { doc =>
+     val rawTypes = hits.scoreDocs.map(_.doc).map(searcher.doc(_)).flatMap { doc =>
        val fbid = doc.get("fbid")
        require(fbid.equals(entityFbid))
        val typeEnumInts = doc.get("types").split(",").filter(!_.isEmpty).map(_.toInt)
        typeEnumInts.flatMap(typeIntToTypeStringMap.get(_))
      }
+     
+     rawTypes.filter(!badTypes.contains(_))
   }
 }
 
@@ -70,6 +75,8 @@ object FbTypeLookup {
 
   import FbTypeLookupGenerator.commaRegex
   import FbTypeLookupGenerator.tabRegex
+
+  private val badTypes = Set("Topic")
   
   def loadIndex(path: String): IndexSearcher = {
     val dir = FSDirectory.open(new File(path))
