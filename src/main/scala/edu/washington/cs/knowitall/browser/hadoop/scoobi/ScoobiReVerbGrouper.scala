@@ -29,9 +29,6 @@ import edu.washington.cs.knowitall.browser.hadoop.entity.Pair
 
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
 
-  case class RVTuple(arg1: String, rel: String, arg2: String) {
-    override def toString = "%s__%s__%s".format(arg1, rel, arg2)
-  }
 
 /**
  * A mapper + reducer job that
@@ -46,20 +43,6 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
   
   private var largestGroup = 0
 
-  // returns an (arg1, rel, arg2) tuple of normalized string tokens
-  def getNormalizedKey(extr: ReVerbExtraction): RVTuple = {
-    
-    val arg1Tokens = extr.getTokens(extr.arg1Interval).filter(!_.postag.equals("DT"))
-    val relTokens  =  extr.getTokens(extr.relInterval).filter(!_.postag.equals("DT"))
-    val arg2Tokens = extr.getTokens(extr.arg2Interval).filter(!_.postag.equals("DT"))
-
-    val arg1Norm = stemmer.stemAll(arg1Tokens.map(tok=>(tok.string, tok.postag)))
-    val relNorm =  stemmer.stemAll(relTokens.map(tok=>(tok.string, tok.postag)))
-    val arg2Norm = stemmer.stemAll(arg2Tokens.map(tok=>(tok.string, tok.postag)))
-
-    RVTuple(arg1Norm.mkString(" ").toLowerCase, relNorm.mkString(" ").toLowerCase, arg2Norm.mkString(" ").toLowerCase)
-  }
-
   def getKeyValuePair(line: String): Option[(String, String)] = {
 
     extrsProcessed += 1
@@ -69,7 +52,10 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
     val extrOpt = ReVerbExtraction.fromTabDelimited(line.split("\t"))._1
 
     extrOpt match {
-      case Some(extr) => Some((getNormalizedKey(extr).toString, line))
+      case Some(extr) => {
+        val key = extr.indexGroupingKeyString
+        Some((key, line))
+      }
       case None => None
     }
   }
@@ -81,19 +67,13 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
     groupsProcessed += 1
     if (groupsProcessed % 10000 == 0) System.err.println("Groups processed: %d, current key: %s, largest group: %d".format(groupsProcessed, key, largestGroup))
 
-    def failure(msg: String = "") = {
-      System.err.println("Error in processGroup: " + msg + ", key: " + key);
-      rawExtrsTruncated.foreach(str => System.err.println(str))
-      None
-    }
-
     val extrs = rawExtrsTruncated.flatMap(line => ReVerbExtraction.fromTabDelimited(line.split("\t"))._1)
 
     val head = extrs.head
 
-    val normTuple = getNormalizedKey(head)
+    val normTuple = head.indexGroupingKey
 
-    if (!normTuple.toString.equals(key)) return failure("Key Mismatch: " + normTuple.toString + " != " + key)
+    require(normTuple.toString.equals(key))
 
     val sources = extrs.map(e => e.sentenceTokens.map(_.string).mkString(" "))
 
@@ -107,9 +87,9 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
     if (instances.size > largestGroup) largestGroup = instances.size
     
     val newGroup = new ExtractionGroup(
-      normTuple.arg1,
-      normTuple.rel,
-      normTuple.arg2,
+      normTuple._1,
+      normTuple._2,
+      normTuple._3,
       arg1Entity,
       arg2Entity,
       Set.empty[FreeBaseType],
@@ -134,7 +114,7 @@ object ScoobiReVerbGrouper {
     val keyValuePair: DList[(String, String)] = extrs.flatMap { line =>
       calls += 1
       if (calls % 10000 == 0) System.err.println("Grouper Cache size: " + grouperCache.size)
-      val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.getInstance, corpus))
+      val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.threadLocalInstance, corpus))
       grouper.getKeyValuePair(line)
     }
 
@@ -142,7 +122,7 @@ object ScoobiReVerbGrouper {
       case (key, sources) =>
         calls += 1
         if (calls % 10000 == 0) System.err.println("Grouper Cache size: " + grouperCache.size)
-        val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.getInstance, corpus))
+        val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.threadLocalInstance, corpus))
         grouper.processGroup(key, sources) match {
 
           case Some(group) => Some(ReVerbExtractionGroup.toTabDelimited(group))

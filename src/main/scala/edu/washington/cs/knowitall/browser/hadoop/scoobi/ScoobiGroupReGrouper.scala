@@ -83,9 +83,7 @@ object ScoobiGroupReGrouper {
     extrsProcessed += 1
     if (extrsProcessed % 20000 == 0) System.err.println("Extractions processed: %d".format(extrsProcessed))
 
-    val normTuple = RVTuple(group.arg1Norm, group.relNorm, group.arg2Norm)
-    (normTuple.toString, ReVerbExtractionGroup.toTabDelimited(group))
-
+    (group.instances.head.extraction.indexGroupingKeyString, ReVerbExtractionGroup.toTabDelimited(group))
   }
 
   def groupMapProcessor(line: String): Option[ExtractionGroup[ReVerbExtraction]] = {

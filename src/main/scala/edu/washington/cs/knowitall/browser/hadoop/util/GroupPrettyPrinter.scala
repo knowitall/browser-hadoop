@@ -15,9 +15,9 @@ object GroupPrettyPrinter {
     val head = group.instances.head.extraction
     val sources = group.instances.map(_.extraction.sentenceTokens).map(sent=>sent.map(_.string).mkString(" "))
     
-    val arg1 = head.getTokens(head.arg1Interval).mkString(" ")
-    val rel = head.getTokens(head.relInterval).mkString(" ")
-    val arg2 = head.getTokens(head.arg2Interval).mkString(" ")
+    val arg1 = head.arg1Tokens.mkString(" ")
+    val rel = head.relTokens.mkString(" ")
+    val arg2 = head.arg2Tokens.mkString(" ")
     
     val arg1E = group.arg1Entity match {
       case Some(entity) => (entity.name, entity.fbid).toString

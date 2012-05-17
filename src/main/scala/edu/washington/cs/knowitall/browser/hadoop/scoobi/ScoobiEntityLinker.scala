@@ -75,13 +75,13 @@ class ScoobiEntityLinker(val linkers: Seq[EntityLinker], val stemmer: TaggedStem
     val sources = extrs.map(e => e.sentenceTokens.map(_.string).mkString(" "))
     // choose a random linker to distribute the load more evenly across the cluster
     val randomLinker = getRandomElement(linkers)
-    val arg1Entity = if (group.arg1Entity.isDefined) group.arg1Entity else getEntity(randomLinker, head.arg1Tokens, head, sources)
+    val arg1Entity = if (group.arg1Entity.isDefined) group.arg1Entity else getEntity(randomLinker, head.arg1Text, head, sources)
 
     if (arg1Entity.isDefined) {
       arg1sLinked += 1
     }
     
-    val arg2Entity = if (group.arg2Entity.isDefined) group.arg2Entity else getEntity(randomLinker, head.arg2Tokens, head, sources)
+    val arg2Entity = if (group.arg2Entity.isDefined) group.arg2Entity else getEntity(randomLinker, head.arg2Text, head, sources)
     
     if (arg2Entity.isDefined) {
       arg2sLinked += 1
@@ -140,7 +140,7 @@ object ScoobiEntityLinker {
     Thread.sleep(randWaitMs.toInt)
         
     val el = getScratch(baseIndex).map(index=>new EntityLinker(index))
-    new ScoobiEntityLinker(el, TaggedStemmer.getInstance)
+    new ScoobiEntityLinker(el, TaggedStemmer.threadLocalInstance)
   }
    
   def getRandomElement[T](seq: Seq[T]): T = seq(Random.nextInt(seq.size))
