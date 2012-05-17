@@ -87,7 +87,6 @@ class ScoobiEntityLinker(val linkers: Seq[EntityLinker], val stemmer: TaggedStem
       arg2sLinked += 1
     }
     
-    
     val newGroup = new ExtractionGroup(
       group.arg1Norm,
       group.relNorm,

@@ -33,11 +33,17 @@ object ScoobiEntityTyper {
   def typeSingleGroup[E <: Extraction](group: ExtractionGroup[E]): ExtractionGroup[E] = {
 
     val arg1Types = group.arg1Entity match {
-      case Some(entity) => getRandomElement(fbLookupTables).getTypesForEntity(entity.fbid).flatMap(FreeBaseType.parse(_))
+      case Some(entity) => getRandomElement(fbLookupTables).getTypesForEntity(entity.fbid).flatMap{ typeString=> 
+        try { FreeBaseType.parse(typeString) }
+        catch { case iae: IllegalArgumentException => {System.err.println(typeString); None}}
+      }
       case None => Nil
     }
     val arg2Types = group.arg2Entity match {
-      case Some(entity) => getRandomElement(fbLookupTables).getTypesForEntity(entity.fbid).flatMap(FreeBaseType.parse(_))
+      case Some(entity) => getRandomElement(fbLookupTables).getTypesForEntity(entity.fbid).flatMap{ typeString=> 
+        try { FreeBaseType.parse(typeString) }
+        catch { case iae: IllegalArgumentException => {System.err.println(typeString); None}}
+      }
       case None => Nil
     }
 
