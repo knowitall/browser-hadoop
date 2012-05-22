@@ -54,11 +54,11 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
   
   def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Set[String]): Option[FreeBaseEntity] = {
     
-    val tryEL = el.getBestFbidFromSources(arg, sources.toSeq)
+    val tryLink = el.getBestFbidFromSources(arg, sources.toSeq)
 
-    if (tryEL != null) {
-
-      Some(FreeBaseEntity(tryEL.one, tryEL.two))
+    if (tryLink != null) {
+      val fbEntity = FreeBaseEntity(tryLink.name, tryLink.fbid, tryLink.score, tryLink.inlinks)
+      Some(fbEntity)
     }
     else None
   }
