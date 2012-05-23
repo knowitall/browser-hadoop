@@ -152,13 +152,17 @@ object ScoobiEntityLinker {
       groups.flatMap { line =>
         val counter = counterLocal.get
         counter.inc
-        if (counter.count % 20000 == 0) System.err.println("Total groups seen: %d".format(counter.count))
-        val scoobiLinker = linkersLocal.get
+        val linker = linkersLocal.get
+        if (counter.count % 20000 == 0) {
+          val format = "Total groups seen: %d, processed: %d, arg1 links: %d, arg2 links: %d"
+          System.err.print(format.format(counter.count), linker.groupsProcessed, linker.arg1sLinked, linker.arg2sLinked)
+        }
+        
         val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
         extrOp match {
           case Some(extr) => {
             if (extr.instances.size <= maxFreq && extr.instances.size >= minFreq) {
-              Some(ReVerbExtractionGroup.toTabDelimited(scoobiLinker.linkEntities(extr)))
+              Some(ReVerbExtractionGroup.toTabDelimited(linker.linkEntities(extr)))
             } else {
               None
             }
