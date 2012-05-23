@@ -108,7 +108,7 @@ object ScoobiEntityLinker {
   var minFreq = 0
   var maxFreq = scala.Int.MaxValue
   var inputPath, outputPath = ""
-  
+  var reportInterval = 20000
 
   // std. deviation for the wait times
   val max_init_wait_ms = 1 * 1 * 1000;
@@ -153,7 +153,7 @@ object ScoobiEntityLinker {
         val counter = counterLocal.get
         counter.inc
         val linker = linkersLocal.get
-        if (counter.count % 20000 == 0) {
+        if (counter.count % reportInterval == 0) {
           val format = "Total groups seen: %d, processed: %d, arg1 links: %d, arg2 links: %d"
           System.err.print(format.format(counter.count), linker.groupsProcessed, linker.arg1sLinked, linker.arg2sLinked)
         }
@@ -181,6 +181,7 @@ object ScoobiEntityLinker {
       arg("outputPath", "hdfs output path, tab delimited ExtractionGroups", { str => outputPath = str })
       opt("minFreq", "minimum num instances in a group to process it inclusive default 0", { str => minFreq = str.toInt })
       opt("maxFreq", "maximum num instances in a group to process it inclusive default Int.MaxValue", { str => maxFreq = str.toInt })
+      opt("reportInterval", "print simple stats every n input groups default 20000", { str => reportInterval = str.toInt })
     }
 
     if (parser.parse(remainingArgs)) {
