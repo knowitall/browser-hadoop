@@ -181,10 +181,8 @@ object ScoobiEntityLinker {
 
     if (parser.parse(remainingArgs)) {
 
-      val linker = getEntityLinker(minFreq, maxFreq, reportInterval)
-
       val lines: DList[String] = TextInput.fromTextFile(inputPath)
-      val linkedGroups: DList[String] = linker.linkGroups(lines)
+      val linkedGroups: DList[String] = getEntityLinker(minFreq, maxFreq, reportInterval).linkGroups(lines)
 
       DList.persist(TextOutput.toTextFile(linkedGroups, outputPath + "/"));
     }
