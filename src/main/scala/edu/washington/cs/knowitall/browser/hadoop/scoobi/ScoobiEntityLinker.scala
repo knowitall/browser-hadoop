@@ -54,7 +54,7 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
   def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Set[String]): Option[FreeBaseEntity] = {
 
     if (arg.length < min_arg_length) None
-    
+
     val tryLink = el.getBestFbidFromSources(arg, sources.toSeq)
 
     if (tryLink != null) {
@@ -159,6 +159,11 @@ object ScoobiEntityLinker {
 
   def getRandomElement[T](seq: Seq[T]): T = seq(Random.nextInt(seq.size))
 
+  def getEntityLinker(minFreq: Int, maxFreq: Int, reportInterval: Int) = {
+    val el = getScratch(baseIndex).map(index => new EntityLinker(index))
+    new ScoobiEntityLinker(el, TaggedStemmer.threadLocalInstance, minFreq, maxFreq, reportInterval)
+  }
+
   def main(args: Array[String]) = withHadoopArgs(args) { remainingArgs =>
 
     var minFreq = 0
@@ -176,8 +181,7 @@ object ScoobiEntityLinker {
 
     if (parser.parse(remainingArgs)) {
 
-      val el = getScratch(baseIndex).map(index => new EntityLinker(index))
-      val linker = new ScoobiEntityLinker(el, TaggedStemmer.threadLocalInstance, minFreq, maxFreq, reportInterval)
+      val linker = getEntityLinker(minFreq, maxFreq, reportInterval)
 
       val lines: DList[String] = TextInput.fromTextFile(inputPath)
       val linkedGroups: DList[String] = linker.linkGroups(lines)
