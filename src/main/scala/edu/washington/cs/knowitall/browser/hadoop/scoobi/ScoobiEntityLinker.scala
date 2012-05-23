@@ -146,7 +146,7 @@ object ScoobiEntityLinker {
       val linker = linkersLocal.getOrElseUpdate(Thread.currentThread, getEntityLinker)
       if (counter.count % 20000 == 0) {
         val format = "MinFreq: %d, MaxFreq: %d, Total groups seen: %d, processed: %d, arg1 links: %d, arg2 links: %d"
-        System.err.print(minFreq, maxFreq, format.format(counter.count, linker.groupsProcessed, linker.arg1sLinked, linker.arg2sLinked))
+        System.err.print(format.format(minFreq, maxFreq, counter.count, linker.groupsProcessed, linker.arg1sLinked, linker.arg2sLinked))
       }
 
       val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
