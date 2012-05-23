@@ -41,7 +41,7 @@ import scopt.OptionParser
   *
   * Also adds types - entityTyper does not have to be run as a separate job
   */
-class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedStemmer, val minFreq: Int, val maxFreq: Int, val reportInterval: Int) {
+class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedStemmer) {
 
   import ScoobiEntityLinker.getRandomElement
   import ScoobiEntityLinker.min_arg_length
@@ -63,12 +63,7 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
     } else None
   }
 
-  def linkEntities(group: ExtractionGroup[ReVerbExtraction]): Option[ExtractionGroup[ReVerbExtraction]] = {
-
-    // not the best place for this but it's better than it was
-    if (group.instances.size > maxFreq && group.instances.size < minFreq) {
-      None
-    }
+  def linkEntities(group: ExtractionGroup[ReVerbExtraction]): ExtractionGroup[ReVerbExtraction] = {
 
     groupsProcessed += 1
 
@@ -105,35 +100,14 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
 
     // Do type lookup (relatively expensive)
     val typedGroup = ScoobiEntityTyper.typeSingleGroup(newGroup)
-    Some(typedGroup)
-  }
-
-  def linkGroups(groups: DList[String]): DList[String] = {
-
-    groups.flatMap { line =>
-      totalGroups += 1
-      if (totalGroups % reportInterval == 0) {
-        val format = "Total groups seen: %d, processed: %d, arg1 links: %d, arg2 links: %d"
-        System.err.print(format.format(totalGroups, groupsProcessed, arg1sLinked, arg2sLinked))
-      }
-
-      val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
-      extrOp match {
-        case Some(extr) => {
-          linkEntities(extr) match {
-            case Some(linkedExtr) => Some(ReVerbExtractionGroup.toTabDelimited(linkedExtr))
-            case None => None
-          }
-        }
-        case None => { System.err.println("ScoobiEntityLinker: Error parsing a group: %s".format(line)); None }
-      }
-    }
+    typedGroup
   }
 }
 
 object ScoobiEntityLinker {
 
   private val min_arg_length = 3
+  val linkersLocal = new mutable.HashMap[Thread, ScoobiEntityLinker] with mutable.SynchronizedMap[Thread, ScoobiEntityLinker]
 
   // std. deviation for the wait times
   val max_init_wait_ms = 1 * 1 * 1000;
@@ -159,20 +133,17 @@ object ScoobiEntityLinker {
 
   def getRandomElement[T](seq: Seq[T]): T = seq(Random.nextInt(seq.size))
 
-  def getEntityLinker(minFreq: Int, maxFreq: Int, reportInterval: Int) = {
+  def getEntityLinker = {
     val el = getScratch(baseIndex).map(index => new EntityLinker(index))
-    new ScoobiEntityLinker(el, TaggedStemmer.threadLocalInstance, minFreq, maxFreq, reportInterval)
+    new ScoobiEntityLinker(el, TaggedStemmer.threadLocalInstance)
   }
 
-  case class Counter(var count: Int) { def inc(): Unit = { count += 1 } }
-  val counterLocal = new ThreadLocal[Counter]() { override def initialValue = Counter(0) }
-
-  def linkGroups(groups: DList[String], minFreq: Int, maxFreq: Int): DList[String] = {
+  def linkGroups(groups: DList[String], minFreq: Int, maxFreq: Int, reportInterval: Int): DList[String] = {
 
     groups.flatMap { line =>
       val counter = counterLocal.get
       counter.inc
-      val linker = linkersLocal.get
+      val linker = linkersLocal.getOrElseUpdate(Thread.currentThread, getEntityLinker)
       if (counter.count % 20000 == 0) {
         val format = "MinFreq: %d, MaxFreq: %d, Total groups seen: %d, processed: %d, arg1 links: %d, arg2 links: %d"
         System.err.print(minFreq, maxFreq, format.format(counter.count, linker.groupsProcessed, linker.arg1sLinked, linker.arg2sLinked))
@@ -192,13 +163,12 @@ object ScoobiEntityLinker {
     }
   }
 
-  def getRandomElement[T](seq: Seq[T]): T = seq(Random.nextInt(seq.size))
-
   def main(args: Array[String]) = withHadoopArgs(args) { remainingArgs =>
 
     var minFreq = 0
     var maxFreq = scala.Int.MaxValue
     var inputPath, outputPath = ""
+    var reportInterval = 20000
 
     val parser = new OptionParser() {
       arg("inputPath", "hdfs input path, tab delimited ExtractionGroups", { str => inputPath = str })
@@ -211,7 +181,7 @@ object ScoobiEntityLinker {
     if (parser.parse(remainingArgs)) {
 
       val lines: DList[String] = TextInput.fromTextFile(inputPath)
-      val linkedGroups: DList[String] = getEntityLinker(minFreq, maxFreq, reportInterval).linkGroups(lines)
+      val linkedGroups: DList[String] = linkGroups(lines, minFreq, maxFreq, reportInterval)
 
       DList.persist(TextOutput.toTextFile(linkedGroups, outputPath + "/"));
     }
