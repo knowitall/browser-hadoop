@@ -37,7 +37,7 @@ object ScoobiReVerbGrouperLinker {
     // serialized ExtractionGroup[ReVerbExtraction]
     val groups = ScoobiReVerbGrouper.groupExtractions(extrs, corpus)
     
-    val linkedGroups = ScoobiEntityLinker.linkGroups(groups, 0, Integer.MAX_VALUE, 20000)
+    val linkedGroups = ScoobiEntityLinker.linkGroups(groups, 0, Integer.MAX_VALUE, 20000, true)
     
     DList.persist(TextOutput.toTextFile(linkedGroups, outputPath + "/"));
   }

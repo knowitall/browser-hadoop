@@ -138,14 +138,14 @@ object ScoobiEntityLinker {
     new ScoobiEntityLinker(el, TaggedStemmer.threadLocalInstance)
   }
 
-  def linkGroups(groups: DList[String], minFreq: Int, maxFreq: Int, reportInterval: Int): DList[String] = {
+  def linkGroups(groups: DList[String], minFreq: Int, maxFreq: Int, reportInterval: Int, skipLinking: Boolean): DList[String] = {
 
     groups.flatMap { line =>
       val counter = counterLocal.get
       counter.inc
       val linker = linkersLocal.getOrElseUpdate(Thread.currentThread, getEntityLinker)
       if (counter.count % reportInterval == 0) {
-        val format = "MinFreq: %d, MaxFreq: %d, Total groups seen: %d, processed: %d, arg1 links: %d, arg2 links: %d"
+        val format = "MinFreq: %d, MaxFreq: %d, groups input: %d, groups output: %d, arg1 links: %d, arg2 links: %d"
         System.err.println(format.format(minFreq, maxFreq, counter.count, linker.groupsProcessed, linker.arg1sLinked, linker.arg2sLinked))
       }
 
@@ -162,6 +162,31 @@ object ScoobiEntityLinker {
       }
     }
   }
+  
+  
+  def frequencyFilter(groups: DList[String], minFreq: Int, maxFreq: Int, reportInterval: Int, skipLinking: Boolean): DList[String] = {
+
+    groups.flatMap { line =>
+      val counter = counterLocal.get
+      counter.inc
+      if (counter.count % reportInterval == 0) {
+        val format = "(Skipping Linking) MinFreq: %d, MaxFreq: %d, groups input: %d, groups output: %d"
+        System.err.println(format.format(minFreq, maxFreq, counter.count))
+      }
+
+      val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
+      extrOp match {
+        case Some(extr) => {
+          if (extr.instances.size <= maxFreq && extr.instances.size >= minFreq) {
+            Some(ReVerbExtractionGroup.toTabDelimited(extr))
+          } else {
+            None
+          }
+        }
+        case None => { System.err.println("ScoobiEntityLinker: Error parsing a group: %s".format(line)); None }
+      }
+    }
+  }
 
   def main(args: Array[String]) = withHadoopArgs(args) { remainingArgs =>
 
@@ -169,6 +194,7 @@ object ScoobiEntityLinker {
     var maxFreq = scala.Int.MaxValue
     var inputPath, outputPath = ""
     var reportInterval = 20000
+    var skipLinking = false;
 
     val parser = new OptionParser() {
       arg("inputPath", "hdfs input path, tab delimited ExtractionGroups", { str => inputPath = str })
@@ -176,12 +202,13 @@ object ScoobiEntityLinker {
       opt("minFreq", "minimum num instances in a group to process it inclusive default 0", { str => minFreq = str.toInt })
       opt("maxFreq", "maximum num instances in a group to process it inclusive default Int.MaxValue", { str => maxFreq = str.toInt })
       opt("reportInterval", "print simple stats every n input groups default 20000", { str => reportInterval = str.toInt })
+      opt("skipLinking", "don't ever actually try to link - (use for frequency filtering)", { skipLinking = true })
     }
 
     if (parser.parse(remainingArgs)) {
 
       val lines: DList[String] = TextInput.fromTextFile(inputPath)
-      val linkedGroups: DList[String] = linkGroups(lines, minFreq, maxFreq, reportInterval)
+      val linkedGroups: DList[String] = linkGroups(lines, minFreq, maxFreq, reportInterval, skipLinking)
 
       DList.persist(TextOutput.toTextFile(linkedGroups, outputPath + "/"));
     }
