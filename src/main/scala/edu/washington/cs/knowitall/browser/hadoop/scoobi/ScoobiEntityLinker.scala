@@ -144,13 +144,15 @@ object ScoobiEntityLinker {
     new ScoobiEntityLinker(el, TaggedStemmer.threadLocalInstance)
   }
 
+  case class Counter(var count: Int) { def inc(): Unit = {count += 1} }
+  val counterLocal = new ThreadLocal[Counter]() { override def initialValue = Counter(0) }
+  
   def linkGroups(groups: DList[String]): DList[String] = {
 
-      var totalGroups = 0
-      
       groups.flatMap { line =>
-        totalGroups += 1
-        if (totalGroups % 20000 == 0) System.err.println("Total groups seen: %d".format(totalGroups))
+        val counter = counterLocal.get
+        counter.inc
+        if (counter.count % 20000 == 0) System.err.println("Total groups seen: %d".format(counter.count))
         val scoobiLinker = linkersLocal.get
         val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
         extrOp match {
@@ -161,7 +163,7 @@ object ScoobiEntityLinker {
               None
             }
           }
-          case None => None
+          case None => { System.err.println("ScoobiEntityLinker: Error parsing a group: %s".format(line)); None}
         }
       }
     }
