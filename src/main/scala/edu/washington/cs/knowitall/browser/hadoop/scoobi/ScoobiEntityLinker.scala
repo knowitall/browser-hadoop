@@ -140,6 +140,8 @@ object ScoobiEntityLinker {
 
   def linkGroups(groups: DList[String], minFreq: Int, maxFreq: Int, reportInterval: Int, skipLinking: Boolean): DList[String] = {
 
+    if (skipLinking) return frequencyFilter(groups, minFreq, maxFreq, reportInterval, skipLinking)
+    
     groups.flatMap { line =>
       val counter = counterLocal.get
       counter.inc
