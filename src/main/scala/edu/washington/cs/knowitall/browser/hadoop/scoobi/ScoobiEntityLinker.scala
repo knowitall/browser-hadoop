@@ -168,18 +168,21 @@ object ScoobiEntityLinker {
   
   def frequencyFilter(groups: DList[String], minFreq: Int, maxFreq: Int, reportInterval: Int, skipLinking: Boolean): DList[String] = {
 
+    var groupsOutput = 0
+    
     groups.flatMap { line =>
       val counter = counterLocal.get
       counter.inc
       if (counter.count % reportInterval == 0) {
         val format = "(Skipping Linking) MinFreq: %d, MaxFreq: %d, groups input: %d, groups output: %d"
-        System.err.println(format.format(minFreq, maxFreq, counter.count))
+        System.err.println(format.format(minFreq, maxFreq, counter.count, groupsOutput))
       }
 
       val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
       extrOp match {
         case Some(extr) => {
           if (extr.instances.size <= maxFreq && extr.instances.size >= minFreq) {
+            groupsOutput += 1
             Some(ReVerbExtractionGroup.toTabDelimited(extr))
           } else {
             None
