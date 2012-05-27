@@ -8,6 +8,8 @@ import com.nicta.scoobi.io.text.TextInput
 import com.nicta.scoobi.io.text.TextOutput._
 import com.nicta.scoobi.io.text.TextOutput
 
+import java.net.InetSocketAddress
+
 import java.io.File
 import java.io.FileWriter
 
@@ -50,7 +52,7 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
   private var arg1sLinked = 0
   private var arg2sLinked = 0
   private var totalGroups = 0
-
+  
   def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Set[String]): Option[FreeBaseEntity] = {
 
     if (arg.length < min_arg_length) None
@@ -106,6 +108,17 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
 
 object ScoobiEntityLinker {
 
+  val cachePort = 11211
+  val cacheNodes = Seq("rv-n02",
+                        "rv-n03",
+                        "rv-n04",
+                        "rv-n05",
+                        "rv-n06",
+                        "rv-n07",
+                        "rv-n08",
+                        "rv-n09",
+                        "rv-n10").map(new InetSocketAddress(_, cachePort))
+                          
   private val min_arg_length = 3
   val linkersLocal = new mutable.HashMap[Thread, ScoobiEntityLinker] with mutable.SynchronizedMap[Thread, ScoobiEntityLinker]
 
@@ -134,7 +147,7 @@ object ScoobiEntityLinker {
   def getRandomElement[T](seq: Seq[T]): T = seq(Random.nextInt(seq.size))
 
   def getEntityLinker = {
-    val el = getScratch(baseIndex).map(index => new EntityLinker(index))
+    val el = getScratch(baseIndex).map(index => new EntityLinker(index, cacheNodes))
     new ScoobiEntityLinker(el, TaggedStemmer.threadLocalInstance)
   }
 
