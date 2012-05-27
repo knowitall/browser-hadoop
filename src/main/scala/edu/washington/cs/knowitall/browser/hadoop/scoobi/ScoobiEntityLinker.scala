@@ -109,15 +109,16 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
 object ScoobiEntityLinker {
 
   val cachePort = 11211
-  val cacheNodes = Seq("rv-n02",
-                        "rv-n03",
-                        "rv-n04",
-                        "rv-n05",
-                        "rv-n06",
-                        "rv-n07",
-                        "rv-n08",
-                        "rv-n09",
-                        "rv-n10").map(new InetSocketAddress(_, cachePort))
+//  val cacheNodes = Seq("rv-n02",
+//                        "rv-n03",
+//                        "rv-n04",
+//                        "rv-n05",
+//                        "rv-n06",
+//                        "rv-n07",
+//                        "rv-n08",
+//                        "rv-n09",
+//                        "rv-n10").map(new InetSocketAddress(_, cachePort))
+  val cacheNodes = Seq(new InetSocketAddress("localhost", cachePort))
                           
   private val min_arg_length = 3
   val linkersLocal = new mutable.HashMap[Thread, ScoobiEntityLinker] with mutable.SynchronizedMap[Thread, ScoobiEntityLinker]
