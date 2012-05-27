@@ -122,7 +122,7 @@ object ScoobiEntityLinker {
   /** Get a random scratch directory on an RV node. */
   def getScratch(pathAfterScratch: String): Seq[String] = {
 
-    for (i <- 1 to 4) yield {
+    for (i <- 1 to 1) yield {
       val numStr = if (i == 1) "" else i.toString
       "/scratch%s/".format(numStr) + pathAfterScratch
     }
