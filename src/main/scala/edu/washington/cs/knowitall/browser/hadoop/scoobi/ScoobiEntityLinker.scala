@@ -126,9 +126,6 @@ object ScoobiEntityLinker {
   private val min_arg_length = 3
   val linkersLocal = new mutable.HashMap[Thread, ScoobiEntityLinker] with mutable.SynchronizedMap[Thread, ScoobiEntityLinker]
 
-  // std. deviation for the wait times
-  val max_init_wait_ms = 1 * 1 * 1000;
-
   val random = new scala.util.Random
 
   // hardcoded for the rv cluster - the location of Tom's freebase context similarity index.
@@ -139,7 +136,7 @@ object ScoobiEntityLinker {
   /** Get a random scratch directory on an RV node. */
   def getScratch(pathAfterScratch: String): Seq[String] = {
 
-    for (i <- 1 to 2) yield {
+    for (i <- 1 to 4) yield {
       val numStr = if (i == 1) "" else i.toString
       "/scratch%s/".format(numStr) + pathAfterScratch
     }
