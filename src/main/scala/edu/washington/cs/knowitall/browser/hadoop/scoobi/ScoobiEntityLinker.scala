@@ -118,7 +118,10 @@ object ScoobiEntityLinker {
 //                        "rv-n08",
 //                        "rv-n09",
 //                        "rv-n10").map(new InetSocketAddress(_, cachePort))
-  val cacheNodes = Seq(new InetSocketAddress("localhost", cachePort))
+  val cacheNodes = {
+    val localhost = java.net.InetAddress.getLocalHost.getHostName
+    Seq(new InetSocketAddress(localhost, cachePort)) 
+  }
                           
   private val min_arg_length = 3
   val linkersLocal = new mutable.HashMap[Thread, ScoobiEntityLinker] with mutable.SynchronizedMap[Thread, ScoobiEntityLinker]
