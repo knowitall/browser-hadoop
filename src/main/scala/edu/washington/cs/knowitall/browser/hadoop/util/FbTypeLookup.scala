@@ -41,7 +41,7 @@ import net.rubyeye.xmemcached.MemcachedClient
 
 import java.util.concurrent.TimeoutException
 
-class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[Int, String], val cacheClient: MemcachedClient) {
+class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[Int, String], val cacheClient: Option[MemcachedClient]) {
   
   private var timeouts = 0
   
@@ -53,7 +53,7 @@ class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[
   // typeIntToTypeStringMap could probably just be an indexedSeq for a slight performance gain,
   // but then you have to deal with the chance that some int isn't in the enumeration separately.
   
-  def this(indexPath: String, typeEnumFile: String, cacheClient: MemcachedClient) = 
+  def this(indexPath: String, typeEnumFile: String, cacheClient: Option[MemcachedClient]) = 
     this(FbTypeLookup.loadIndex(indexPath), FbTypeLookup.loadEnumFile(typeEnumFile), cacheClient)
 
   def getTypesForEntity(entityFbid: String): List[String] = {
@@ -76,14 +76,14 @@ class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[
   
   private def getOrElseUpdateCache(entityFbid: String, updater: String => List[String]): List[String] = {
 
-    if (cacheClient == null) return updater(entityFbid)
+    if (cacheClient == null || cacheClient.isEmpty) return updater(entityFbid)
 
     val cacheKey = memcachedKey(entityFbid)
     try {
-      val result = cacheClient.get(cacheKey, memcachedTimeoutMillis).asInstanceOf[List[String]]
+      val result = cacheClient.get.get(cacheKey, memcachedTimeoutMillis).asInstanceOf[List[String]]
       if (result == null) {
         val newResult = updater(entityFbid)
-        cacheClient.add(cacheKey, 36000, newResult)
+        cacheClient.get.add(cacheKey, 36000, newResult)
         return newResult
       } else {
         return result.asInstanceOf[List[String]]

@@ -127,9 +127,7 @@ object ScoobiEntityLinker {
     Seq(new InetSocketAddress(localhost, cachePort)) 
   }
   
-  val cacheClient = {
-    new XMemcachedClientBuilder(cacheNodes).build()
-  }
+  val cacheClient: Option[MemcachedClient] = None // new XMemcachedClientBuilder(cacheNodes).build()
                           
   private val min_arg_length = 3
   val linkersLocal = new mutable.HashMap[Thread, ScoobiEntityLinker] with mutable.SynchronizedMap[Thread, ScoobiEntityLinker]
@@ -156,7 +154,7 @@ object ScoobiEntityLinker {
   def getRandomElement[T](seq: Seq[T]): T = seq(Random.nextInt(seq.size))
 
   def getEntityLinker = {
-    val el = getScratch(baseIndex).map(index => new EntityLinker(index, cacheClient))
+    val el = getScratch(baseIndex).map(index => new EntityLinker(index, cacheClient.getOrElse(null))) // java doesn't have Option
     new ScoobiEntityLinker(el, TaggedStemmer.threadLocalInstance)
   }
 

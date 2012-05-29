@@ -20,7 +20,7 @@ import net.rubyeye.xmemcached.MemcachedClient
 /**
   * Does type lookup for freebase entities (fills in the argXTypes field in an extractionGroup)
   */
-class ScoobiEntityTyper(val cacheClient: MemcachedClient) {
+class ScoobiEntityTyper(val cacheClient: Option[MemcachedClient]) {
 
   import ScoobiEntityLinker.getRandomElement
 
