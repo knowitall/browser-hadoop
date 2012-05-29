@@ -74,7 +74,7 @@ class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[
     if (cacheClient == null) return updater(entityFbid)
     
     val cacheKey = memcachedKey(entityFbid)
-    val result = cacheClient.get(cacheKey, memcachedTimeoutMillis)
+    val result = cacheClient.get[String](cacheKey, memcachedTimeoutMillis)
     if (result == null) {
       val newResult = updater(entityFbid)
       cacheClient.add(cacheKey, 36000, newResult)
