@@ -109,15 +109,6 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
 object ScoobiEntityLinker {
 
   val cachePort = 11211
-//  val cacheNodes = Seq("rv-n02",
-//                        "rv-n03",
-//                        "rv-n04",
-//                        "rv-n05",
-//                        "rv-n06",
-//                        "rv-n07",
-//                        "rv-n08",
-//                        "rv-n09",
-//                        "rv-n10").map(new InetSocketAddress(_, cachePort))
   val cacheNodes = {
     val localhost = java.net.InetAddress.getLocalHost.getHostName
     Seq(new InetSocketAddress(localhost, cachePort)) 
