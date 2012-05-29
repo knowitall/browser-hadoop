@@ -15,34 +15,33 @@ import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.browser.hadoop.util.FbTypeLookup
 
 import edu.washington.cs.knowitall.common.Timing
+import net.rubyeye.xmemcached.MemcachedClient
 
 /**
   * Does type lookup for freebase entities (fills in the argXTypes field in an extractionGroup)
   */
-object ScoobiEntityTyper {
-  
-  val minCompletionSeconds = 90
-  
+class ScoobiEntityTyper(val cacheClient: MemcachedClient) {
+
   import ScoobiEntityLinker.getRandomElement
-  
+
   lazy val fbEntityIndexes = ScoobiEntityLinker.getScratch("browser-freebase/type-lookup-index/")
   lazy val fbTypeEnumFile = "/scratch/browser-freebase/fbTypeEnum.txt"
 
-  private lazy val fbLookupTables = fbEntityIndexes.map(index=>new FbTypeLookup(index, fbTypeEnumFile))
+  private lazy val fbLookupTables = fbEntityIndexes.map(index => new FbTypeLookup(index, fbTypeEnumFile, cacheClient))
 
   def typeSingleGroup[E <: Extraction](group: ExtractionGroup[E]): ExtractionGroup[E] = {
 
     val arg1Types = group.arg1Entity match {
-      case Some(entity) => getRandomElement(fbLookupTables).getTypesForEntity(entity.fbid).flatMap{ typeString=> 
+      case Some(entity) => getRandomElement(fbLookupTables).getTypesForEntity(entity.fbid).flatMap { typeString =>
         try { FreeBaseType.parse(typeString) }
-        catch { case iae: IllegalArgumentException => {System.err.println(typeString); None}}
+        catch { case iae: IllegalArgumentException => { System.err.println(typeString); None } }
       }
       case None => Nil
     }
     val arg2Types = group.arg2Entity match {
-      case Some(entity) => getRandomElement(fbLookupTables).getTypesForEntity(entity.fbid).flatMap{ typeString=> 
+      case Some(entity) => getRandomElement(fbLookupTables).getTypesForEntity(entity.fbid).flatMap { typeString =>
         try { FreeBaseType.parse(typeString) }
-        catch { case iae: IllegalArgumentException => {System.err.println(typeString); None}}
+        catch { case iae: IllegalArgumentException => { System.err.println(typeString); None } }
       }
       case None => Nil
     }
@@ -61,7 +60,7 @@ object ScoobiEntityTyper {
   def typeGroups(groupStrings: DList[String]): DList[String] = {
 
     var groupsProcessed = 0
-    
+
     groupStrings.flatMap { groupString =>
       groupsProcessed += 1
       if (groupsProcessed % 100000 == 0) System.err.println("Groups processed: %s".format(groupsProcessed))
@@ -75,7 +74,13 @@ object ScoobiEntityTyper {
       }
     }
   }
+}
+object ScoobiEntityTyper {
 
+  val minCompletionSeconds = 90
+
+  val typerLocal = new ThreadLocal[ScoobiEntityTyper]() { override def initialValue() = new ScoobiEntityTyper(ScoobiEntityLinker.cacheClient) }
+  
   def main(args: Array[String]) = withHadoopArgs(args) { remainingArgs =>
 
     conf.set("mapred.job.name", "browser entity linker")
@@ -84,12 +89,12 @@ object ScoobiEntityTyper {
 
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
 
-    val (completionTime, typedGroups): (Long, DList[String]) = Timing.time(typeGroups(lines))
+    val (completionTime, typedGroups): (Long, DList[String]) = Timing.time(typerLocal.get.typeGroups(lines))
 
     val remainingSeconds = minCompletionSeconds - completionTime / Timing.Seconds.divisor
-    
+
     Thread.sleep(remainingSeconds * 1000)
-    
+
     DList.persist(TextOutput.toTextFile(typedGroups, outputPath + "/"));
   }
 }

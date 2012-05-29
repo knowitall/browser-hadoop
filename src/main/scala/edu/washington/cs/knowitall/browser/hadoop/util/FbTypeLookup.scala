@@ -36,17 +36,27 @@ import java.io.File
 
 import edu.washington.cs.knowitall.common.Resource.using
 
-class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[Int, String]) {
+import net.rubyeye.xmemcached.MemcachedClient
+
+class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[Int, String], val cacheClient: MemcachedClient) {
+  
+  if (cacheClient == null) System.err.println("Warning, cacheclient is null")
   
   import FbTypeLookup.badTypes
+  import FbTypeLookup.memcachedTimeoutMillis
   
   // typeIntToTypeStringMap could probably just be an indexedSeq for a slight performance gain,
   // but then you have to deal with the chance that some int isn't in the enumeration separately.
   
-  def this(indexPath: String, typeEnumFile: String) = this(FbTypeLookup.loadIndex(indexPath), FbTypeLookup.loadEnumFile(typeEnumFile))
+  def this(indexPath: String, typeEnumFile: String, cacheClient: MemcachedClient) = 
+    this(FbTypeLookup.loadIndex(indexPath), FbTypeLookup.loadEnumFile(typeEnumFile), cacheClient)
 
+  def getTypesForEntity(entityFbid: String): List[String] = {
+    getOrElseUpdateCache(entityFbid, getTypesForEntityUncached _)
+  }
+    
   /** please strip off the /m/ first. */
-  def getTypesForEntity(entityFbid: String): Seq[String] = {
+  private def getTypesForEntityUncached(entityFbid: String): List[String] = {
      val query = new TermQuery(new Term("fbid", entityFbid))
      val hits = searcher.search(query, null, 10)
      val rawTypes = hits.scoreDocs.map(_.doc).map(searcher.doc(_)).flatMap { doc =>
@@ -56,7 +66,26 @@ class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[
        typeEnumInts.flatMap(typeIntToTypeStringMap.get(_))
      }
      
-     rawTypes.filter(!badTypes.contains(_))
+     rawTypes.filter(!badTypes.contains(_)).toList
+  }
+  
+  private def getOrElseUpdateCache(entityFbid: String, updater: String => List[String]): List[String] = {
+    
+    if (cacheClient == null) return updater(entityFbid)
+    
+    val cacheKey = memcachedKey(entityFbid)
+    val result = cacheClient.get(cacheKey, memcachedTimeoutMillis)
+    if (result == null) {
+      val newResult = updater(entityFbid)
+      cacheClient.add(cacheKey, 36000, newResult)
+      return newResult
+    } else {
+      return result.asInstanceOf[List[String]]
+    }
+  }
+  
+  def memcachedKey(fbid: String): String = {
+    "Typelookup(%s)".format(fbid)
   }
 }
 
@@ -76,6 +105,8 @@ object FbTypeLookup {
   import FbTypeLookupGenerator.commaRegex
   import FbTypeLookupGenerator.tabRegex
 
+  private val memcachedTimeoutMillis = 20
+  
   private val badTypes = Set("Topic")
   
   def loadIndex(path: String): IndexSearcher = {
@@ -107,7 +138,7 @@ object FbTypeLookup {
     }
     if (!parser.parse(args)) return
     
-    val lookup = new FbTypeLookup(entityFile, enumFile)
+    val lookup = new FbTypeLookup(entityFile, enumFile, null)
 
     val fbids = Seq("03gss12", "0260w54", "0260xrp", "02610rn", "02610t0")
     

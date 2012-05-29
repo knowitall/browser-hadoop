@@ -33,6 +33,9 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
 
 import scopt.OptionParser
 
+import net.rubyeye.xmemcached.XMemcachedClientBuilder
+import net.rubyeye.xmemcached.MemcachedClient
+
 /**
   * A mapper job that
   * takes tab-delimited ReVerbExtractions as input, groups them by a normalization key, and
@@ -48,6 +51,8 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
   import ScoobiEntityLinker.getRandomElement
   import ScoobiEntityLinker.min_arg_length
 
+  private val scoobiTyper = new ScoobiEntityTyper(ScoobiEntityLinker.cacheClient)
+  
   private var groupsProcessed = 0
   private var arg1sLinked = 0
   private var arg2sLinked = 0
@@ -67,6 +72,13 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
 
   def linkEntities(group: ExtractionGroup[ReVerbExtraction]): ExtractionGroup[ReVerbExtraction] = {
 
+    // a hack for the thread problem
+    if (groupsProcessed == 0) {
+      val keys = Thread.getAllStackTraces.keySet
+      System.err.println("Num threads running: " + keys.size)
+      keys.foreach { thread => System.err.println("%s, %s, %s".format(thread.getId, thread.getName, thread.getPriority)) }
+    }
+    
     groupsProcessed += 1
 
     val extrs = group.instances.map(_.extraction)
@@ -101,7 +113,7 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
     //
 
     // Do type lookup (relatively expensive)
-    val typedGroup = ScoobiEntityTyper.typeSingleGroup(newGroup)
+    val typedGroup = scoobiTyper.typeSingleGroup(newGroup)
     typedGroup
   }
 }
@@ -109,9 +121,14 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
 object ScoobiEntityLinker {
 
   val cachePort = 11211
+  
   val cacheNodes = {
     val localhost = java.net.InetAddress.getLocalHost.getHostName
     Seq(new InetSocketAddress(localhost, cachePort)) 
+  }
+  
+  val cacheClient = {
+    new XMemcachedClientBuilder(cacheNodes).build()
   }
                           
   private val min_arg_length = 3
@@ -139,7 +156,7 @@ object ScoobiEntityLinker {
   def getRandomElement[T](seq: Seq[T]): T = seq(Random.nextInt(seq.size))
 
   def getEntityLinker = {
-    val el = getScratch(baseIndex).map(index => new EntityLinker(index, cacheNodes))
+    val el = getScratch(baseIndex).map(index => new EntityLinker(index, cacheClient))
     new ScoobiEntityLinker(el, TaggedStemmer.threadLocalInstance)
   }
 
