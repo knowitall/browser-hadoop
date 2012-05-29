@@ -38,7 +38,12 @@ import edu.washington.cs.knowitall.common.Resource.using
 
 import net.rubyeye.xmemcached.MemcachedClient
 
+
+import java.util.concurrent.TimeoutException
+
 class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[Int, String], val cacheClient: MemcachedClient) {
+  
+  private var timeouts = 0
   
   if (cacheClient == null) System.err.println("Warning, cacheclient is null")
   
@@ -70,17 +75,25 @@ class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[
   }
   
   private def getOrElseUpdateCache(entityFbid: String, updater: String => List[String]): List[String] = {
-    
+
     if (cacheClient == null) return updater(entityFbid)
-    
+
     val cacheKey = memcachedKey(entityFbid)
-    val result = cacheClient.get(cacheKey, memcachedTimeoutMillis).asInstanceOf[List[String]]
-    if (result == null) {
-      val newResult = updater(entityFbid)
-      cacheClient.add(cacheKey, 36000, newResult)
-      return newResult
-    } else {
-      return result.asInstanceOf[List[String]]
+    try {
+      val result = cacheClient.get(cacheKey, memcachedTimeoutMillis).asInstanceOf[List[String]]
+      if (result == null) {
+        val newResult = updater(entityFbid)
+        cacheClient.add(cacheKey, 36000, newResult)
+        return newResult
+      } else {
+        return result.asInstanceOf[List[String]]
+      }
+    } catch {
+      case tex: TimeoutException => {
+        timeouts += 1
+        System.err.println("Warning, timeout num %s for entity %s".format(timeouts, entityFbid))
+        updater(entityFbid)
+      }
     }
   }
   
