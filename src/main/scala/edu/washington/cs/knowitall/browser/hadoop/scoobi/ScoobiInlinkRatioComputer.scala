@@ -17,16 +17,27 @@ import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.util.TaggedStemmer
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 
+import scopt.OptionParser
+
 object ScoobiInlinkRatioComputer {
   
   private val NO_ENTITY = "*NO_ENTITY*"
   
   type REG = ExtractionGroup[ReVerbExtraction]
   
-  def main(args: Array[String]) = withHadoopArgs(args) { a =>
+  def main(args: Array[String]): Unit = withHadoopArgs(args) { a =>
 
-    val (inputPath, outputPath) = (a(0), a(1))
+    var inputPath, outputPath = ""
+    var processArg1 = true
 
+    val parser = new OptionParser() {
+      arg("inputPath", "hdfs input path, tab delimited ExtractionGroups with inlink counts", { str => inputPath = str })
+      arg("outputPath", "hdfs output path, tab delimited ExtractionGroups with inlink counts", { str => outputPath = str })
+      arg("processArg1", "arg1 for arg1, anything else for arg2", { str => processArg1 = str.equals("arg1") })
+    }
+
+    if (!parser.parse(args)) return
+    
     // serialized ReVerbExtractions
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
 
@@ -36,41 +47,29 @@ object ScoobiInlinkRatioComputer {
         case None => None
       }
     }
-    
-    val arg1KeyValuePairs = groups.map { case (group, line) =>
-      group.arg1Entity match {
-        case Some(entity) => (entity.name, line)
-        case None => ("*NO_ENTITY*", line)
-      }
+
+    val argKeyValuePairs = groups.map {
+      case (group, line) =>
+        if (processArg1) {
+          group.arg1Entity match {
+            case Some(entity) => (entity.name, line)
+            case None => ("*NO_ENTITY*", line)
+          }
+        } else {
+          group.arg2Entity match {
+            case Some(entity) => (entity.name, line)
+            case None => ("*NO_ENTITY*", line)
+          }
+        }
     }
 
-    val arg1Grouped = arg1KeyValuePairs.groupByKey
+    val argGrouped = argKeyValuePairs.groupByKey
     
-    val arg1sFinished = arg1Grouped.flatMap { case (key, extrGroups) => 
-      if (!key.equals(NO_ENTITY)) processReducerGroup(arg1=true, extrGroups) else extrGroups 
+    val argsFinished = argGrouped.flatMap { case (key, extrGroups) => 
+      if (!key.equals(NO_ENTITY)) processReducerGroup(processArg1, extrGroups) else extrGroups 
     }
     
-    val arg2Lines = arg1sFinished.flatMap { line =>
-      ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1 match {
-        case Some(extrGroup) => Some((extrGroup, line))
-        case None => None
-      }
-    }
-    
-    val arg2KeyValuePairs = groups.map { case (group, line) =>
-      group.arg2Entity match {
-        case Some(entity) => (entity.name, line)
-        case None => ("*NO_ENTITY*", line)
-      }
-    }
-    
-    val arg2Grouped = arg2KeyValuePairs.groupByKey
-    
-     val arg2sFinished = arg2Grouped.flatMap { case (key, extrGroups) => 
-      if (!key.equals(NO_ENTITY)) processReducerGroup(arg1=false, extrGroups) else extrGroups 
-    }
-    
-    DList.persist(TextOutput.toTextFile(arg2sFinished, outputPath + "/"));
+    DList.persist(TextOutput.toTextFile(argsFinished, outputPath + "/"));
   }
   
   /**
