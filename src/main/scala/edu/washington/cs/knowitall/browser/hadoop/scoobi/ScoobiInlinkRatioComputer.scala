@@ -85,9 +85,10 @@ object ScoobiInlinkRatioComputer {
     extrGroups.map { extrGroup =>
       
       val procEntity = if (arg1) extrGroup.arg1Entity.get else extrGroup.arg2Entity.get
-      val inlinks = procEntity.inlinks
-      val arg1Entity = if (arg1) Some(new FreeBaseEntity(procEntity.name, procEntity.fbid, procEntity.score, procEntity.inlinks)) else extrGroup.arg1Entity
-      val arg2Entity = if (arg2) Some(new FreeBaseEntity(procEntity.name, procEntity.fbid, procEntity.score, procEntity.inlinks)) else extrGroup.arg2Entity 
+      val inlinks = procEntity.inlinkRatio
+      val ratio = size.toDouble / inlinks.toDouble
+      val arg1Entity = if (arg1) Some(new FreeBaseEntity(procEntity.name, procEntity.fbid, procEntity.score, ratio)) else extrGroup.arg1Entity
+      val arg2Entity = if (arg2) Some(new FreeBaseEntity(procEntity.name, procEntity.fbid, procEntity.score, ratio)) else extrGroup.arg2Entity 
       
       new ExtractionGroup(
           extrGroup.arg1Norm,

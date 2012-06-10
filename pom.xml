@@ -67,7 +67,7 @@
     <dependency>
       <groupId>edu.washington.cs.knowitall</groupId>
       <artifactId>openiedemo-backend</artifactId>
-      <version>0.0.6-SNAPSHOT</version>
+      <version>1.0.1-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>edu.washington.cs.knowitall</groupId>

@@ -140,7 +140,7 @@ object OldRvConverter {
       sentence.getTokens(arg2Range)
       val sentenceTokens =  ReVerbExtraction.chunkedTokensFromLayers(sentence.getTokens.toIndexedSeq, sentence.getPosTags.toIndexedSeq, sentence.getChunkTags.toIndexedSeq)
       
-      Some(ReVerbExtraction.fromSentAndIntervals(arg1Range, relRange, arg2Range, sentenceTokens, sourceUrl))
+      Some(new ReVerbExtraction(sentenceTokens, arg1Range, relRange, arg2Range, sourceUrl))
       
     } catch {
       case e: Exception => { e.printStackTrace(); None }
