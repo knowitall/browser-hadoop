@@ -36,7 +36,7 @@ object ScoobiInlinkRatioComputer {
       arg("processArg1", "arg1 for arg1, anything else for arg2", { str => processArg1 = str.equals("arg1") })
     }
 
-    if (!parser.parse(args)) return
+    if (!parser.parse(a)) return
     
     // serialized ReVerbExtractions
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
