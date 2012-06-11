@@ -52,12 +52,12 @@ object ScoobiInlinkRatioComputer {
       case (group, line) =>
         if (processArg1) {
           group.arg1Entity match {
-            case Some(entity) => (entity.name, line)
+            case Some(entity) => (entity.fbid, line)
             case None => ("*NO_ENTITY*", line)
           }
         } else {
           group.arg2Entity match {
-            case Some(entity) => (entity.name, line)
+            case Some(entity) => (entity.fbid, line)
             case None => ("*NO_ENTITY*", line)
           }
         }
@@ -66,7 +66,7 @@ object ScoobiInlinkRatioComputer {
     val argGrouped = argKeyValuePairs.groupByKey
     
     val argsFinished = argGrouped.flatMap { case (key, extrGroups) => 
-      if (!key.equals(NO_ENTITY)) processReducerGroup(processArg1, extrGroups) else extrGroups 
+      if (!key.equals(NO_ENTITY)) Some(processReducerGroup(processArg1, extrGroups)) else None 
     }
     
     DList.persist(TextOutput.toTextFile(argsFinished, outputPath + "/"));
@@ -75,31 +75,35 @@ object ScoobiInlinkRatioComputer {
   /**
    * Assumes all REGs are linked, don't call this if there isn't a link in given arg field.
    */
-  def processReducerGroup(arg1: Boolean, rawExtrGroups: Iterable[String]): Iterable[String] = {
+  def processReducerGroup(arg1: Boolean, rawExtrGroups: Iterable[String]): String = {
     
-    val extrGroups = rawExtrGroups.flatMap(line=>ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1)
+    val rawProcGroup = rawExtrGroups.head
+    val procGroup = ReVerbExtractionGroup.fromTabDelimited(rawProcGroup.split("\t"))._1.get
+    val procEntity = if (arg1) procGroup.arg1Entity.get else procGroup.arg2Entity.get
+    def size = rawExtrGroups.size
+    val inlinks = procEntity.inlinkRatio
+    def ratio = size.toDouble / inlinks.toDouble
     
-    val arg2 = !arg1
-    val size = extrGroups.size
-    extrGroups.map { extrGroup =>
-      
-      val procEntity = if (arg1) extrGroup.arg1Entity.get else extrGroup.arg2Entity.get
-      val inlinks = procEntity.inlinkRatio
-      val ratio = size.toDouble / inlinks.toDouble
-      val arg1Entity = if (arg1) Some(new FreeBaseEntity(procEntity.name, procEntity.fbid, procEntity.score, ratio)) else extrGroup.arg1Entity
-      val arg2Entity = if (arg2) Some(new FreeBaseEntity(procEntity.name, procEntity.fbid, procEntity.score, ratio)) else extrGroup.arg2Entity 
-      
-      new ExtractionGroup(
-          extrGroup.arg1Norm,
-          extrGroup.relNorm,
-          extrGroup.arg2Norm,
-          arg1Entity,
-          arg2Entity,
-          extrGroup.arg1Types,
-          extrGroup.arg2Types,
-          extrGroup.instances
-      )
-    }.map (ReVerbExtractionGroup.toTabDelimited(_))
+    "%.04f\t%s\t%s".format(ratio, procEntity.name, procEntity.fbid)
+//    extrGroups.map { extrGroup =>
+//      
+//      val procEntity = if (arg1) extrGroup.arg1Entity.get else extrGroup.arg2Entity.get
+//      val inlinks = procEntity.inlinkRatio
+//      val ratio = size.toDouble / inlinks.toDouble
+//      val arg1Entity = if (arg1) Some(new FreeBaseEntity(procEntity.name, procEntity.fbid, procEntity.score, ratio)) else extrGroup.arg1Entity
+//      val arg2Entity = if (arg2) Some(new FreeBaseEntity(procEntity.name, procEntity.fbid, procEntity.score, ratio)) else extrGroup.arg2Entity 
+//      
+//      new ExtractionGroup(
+//          extrGroup.arg1Norm,
+//          extrGroup.relNorm,
+//          extrGroup.arg2Norm,
+//          arg1Entity,
+//          arg2Entity,
+//          extrGroup.arg1Types,
+//          extrGroup.arg2Types,
+//          extrGroup.instances
+//      )
+//    }.map (ReVerbExtractionGroup.toTabDelimited(_))
   }
   
 }
