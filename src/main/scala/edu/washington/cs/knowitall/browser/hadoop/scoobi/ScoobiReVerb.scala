@@ -102,8 +102,8 @@ object ScoobiReVerb {
     }
 
     val finalExtractions = lines.flatMap { line =>
-        val rvExtrs = getBrowserExtractions(line)
-        rvExtrs map ReVerbExtraction.toTabDelimited
+      val rvExtrs = getBrowserExtractions(line)
+      rvExtrs map ReVerbExtraction.toTabDelimited
     }
     
     DList.persist(TextOutput.toTextFile(finalExtractions, outputPath + "/"));
