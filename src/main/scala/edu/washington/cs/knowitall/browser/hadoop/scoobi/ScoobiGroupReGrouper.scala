@@ -18,7 +18,7 @@ import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.commonlib.Range
 import edu.washington.cs.knowitall.collection.immutable.Interval
 
-import edu.washington.cs.knowitall.extractor.conf.ReVerbOpenNlpConfFunction
+import edu.washington.cs.knowitall.extractor.conf.ReVerbConfFunction
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedArgumentExtraction
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedBinaryExtraction
@@ -26,8 +26,8 @@ import edu.washington.cs.knowitall.nlp.ChunkedSentence
 
 object ScoobiGroupReGrouper {
   
-  val confLocal = new ThreadLocal[ReVerbOpenNlpConfFunction]() {
-    override def initialValue = new ReVerbOpenNlpConfFunction()
+  val confLocal = new ThreadLocal[ReVerbConfFunction]() {
+    override def initialValue = new ReVerbConfFunction()
   }
 
   private var extrsProcessed = 0
