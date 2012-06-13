@@ -128,11 +128,13 @@ object OldRvConverter {
       case e: Exception => { e.printStackTrace(); None }
     }
   }
+  
+  implicit def rangeToInterval(range: Range): Interval = Interval.closed(range.getStart, range.getLastIndex)
 
   private def buildExtraction(arg1Range: Range, relRange: Range, arg2Range: Range, sentence: ChunkedSentence, sourceUrl: String): Option[ReVerbExtraction] = {
    
-    implicit def rangeToInterval(range: Range): Interval = Interval.closed(range.getStart, range.getLastIndex)
     
+   
     try {
       // verification
       sentence.getTokens(arg1Range)
@@ -140,7 +142,7 @@ object OldRvConverter {
       sentence.getTokens(arg2Range)
       val sentenceTokens =  ReVerbExtraction.chunkedTokensFromLayers(sentence.getTokens.toIndexedSeq, sentence.getPosTags.toIndexedSeq, sentence.getChunkTags.toIndexedSeq)
       
-      Some(new ReVerbExtraction(sentenceTokens, arg1Range, relRange, arg2Range, sourceUrl))
+      Some(new ReVerbExtraction(sentenceTokens.toIndexedSeq, arg1Range, relRange, arg2Range, sourceUrl))
       
     } catch {
       case e: Exception => { e.printStackTrace(); None }
