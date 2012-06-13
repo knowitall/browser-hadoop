@@ -38,6 +38,7 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  */
 class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
  
+  
   private var extrsProcessed = 0
   private var groupsProcessed = 0
   
@@ -71,9 +72,10 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 
     val head = extrs.head
 
+    val normKey = head.indexGroupingKeyString
     val normTuple = head.indexGroupingKey
-
-    require(normTuple.toString.equals(key))
+    
+    require(normKey.equals(key))
 
     val sources = extrs.map(e => e.sentenceTokens.map(_.string).mkString(" "))
 
