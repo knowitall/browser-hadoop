@@ -91,8 +91,8 @@ object ScoobiReVerb {
       val extractions = chunkedExtractions map { chunkedExtr => 
         val sent = chunkedExtr.getSentence
         val sentenceTokens = ReVerbExtraction.chunkedTokensFromLayers(sent.getTokens, sent.getPosTags, sent.getChunkTags).toIndexedSeq
-        val (arg1Interval, relInterval, arg2Interval): (Interval, Interval, Interval) = (chunkedExtr.getArgument1.getRange, chunkedExtr.getRelation.getRange, chunkedExtr.getArgument2.getRange)
-        
+        val (arg1Range, relRange, arg2Range) = (chunkedExtr.getArgument1.getRange, chunkedExtr.getRelation.getRange, chunkedExtr.getArgument2.getRange)
+        val (arg1Interval, relInterval, arg2Interval) = (rangeToInterval(arg1Range), rangeToInterval(relRange), rangeToInterval(arg2Range))
         val urlString = java.net.URLEncoder.encode(sentenceTokens.dropRight(1).map(_.string).mkString(" "), "UTF-8")
         val sourceUrl = "http://en.wikipedia.org/wiki/Special:Search?search=%s&go=Go".format(urlString)
         new ReVerbExtraction(sentenceTokens, arg1Interval, relInterval, arg2Interval, sourceUrl)
