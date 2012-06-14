@@ -17,11 +17,10 @@ import org.apache.lucene.search.IndexSearcher
  * Command-line interface allows the user to skip linking for singleton groups
  * that do not join any new group in the index (this saves a lot of time)
  */
-class ReVerbIndexModifier(val fetcher: ExtractionGroupFetcher, val linker: Option[ScoobiEntityLinker], val writerBufferMb: Int, val groupsPerCommit: Int) {
+class ReVerbIndexModifier(val fetcher: ExtractionGroupFetcher, val writer: IndexWriter, val linker: Option[ScoobiEntityLinker], val writerBufferMb: Int, val groupsPerCommit: Int) {
 
   val searcher = fetcher.indexSearcher
   val reader = fetcher.indexSearcher.getIndexReader
-  val writer = new IndexWriter(reader.directory, ReVerbIndexBuilder.indexWriterConfig(writerBufferMb))
   
   type REG = ExtractionGroup[ReVerbExtraction]
 
@@ -32,7 +31,7 @@ class ReVerbIndexModifier(val fetcher: ExtractionGroupFetcher, val linker: Optio
     */
   private def updateGroup(group: REG, onlyIfAlreadyExists: Boolean): Boolean = {
     
-    val querySpec = group.identityQuery
+    val querySpec = group.identityQuery(true)
     val beforeGroups = fetcher.getGroups(querySpec) match {
       case Timeout(results, _) => throw new RuntimeException("Failed to add document due to timeout.")
       case Limited(results, _) => throw new RuntimeException("Index results were limited... this shouldn't happen!")

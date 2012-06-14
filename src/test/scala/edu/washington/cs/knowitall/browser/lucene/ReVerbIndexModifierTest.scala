@@ -20,9 +20,11 @@ import scala.io.Source
 @RunWith(classOf[JUnitRunner])
 class ReVerbIndexModifierTest extends Suite {
 
-  val numGroupsToTest = 1000                     
+  type REG = ExtractionGroup[ReVerbExtraction]
+  
+  val numGroupsToTest = 1000
 
-  var rawInputLines: List[String] = Source.fromInputStream(ResourceUtils.loadResource("test-groups-5.txt", this.getClass()), "UTF-8").getLines.drop(1000).take(numGroupsToTest).toList
+  val rawInputLines: List[String] = Source.fromInputStream(ResourceUtils.loadResource("test-groups-5.txt", this.getClass()), "UTF-8").getLines.drop(1000).take(numGroupsToTest).toList
 
   val inputLines =  rawInputLines flatMap lineToOptGroup flatMap(_.reNormalize) map ReVerbExtractionGroup.toTabDelimited
   
@@ -39,45 +41,55 @@ class ReVerbIndexModifierTest extends Suite {
     
     val indexBuilder = new IndexBuilder(indexWriter, ReVerbIndexBuilder.inputLineConverter(regroup=false), 100)
 
+    val eachHalfSize = numGroupsToTest/2
+    
+    println("Halfsize: %d".format(eachHalfSize))
+    
     val randomizedLines = inputLines //scala.util.Random.shuffle(inputLines)
-    val firstHalfLines = randomizedLines.take(numGroupsToTest/2)
-    val secondHalfLines  = randomizedLines.drop(numGroupsToTest/2)
+    val firstHalfLines = randomizedLines.take(eachHalfSize)
+    val secondHalfLines  = randomizedLines.drop(eachHalfSize)
     
     firstHalfLines foreach println
+    println
     secondHalfLines foreach println
+    
+    val firstHalfGroups = firstHalfLines flatMap lineToOptGroup
+    val secondHalfGroups = secondHalfLines flatMap lineToOptGroup
     
     System.err.println("Building first half of index:")
 
     // build the index
     indexBuilder.indexAll(firstHalfLines.iterator)
-
-    System.err.println("Finished building first half, adding second half...")
-
-    indexWriter.close
+    var indexReader = IndexReader.open(indexWriter, true)
+    System.err.println("Finished building first half (%d), adding second half...".format(indexReader.maxDoc))
     
-    // open the index and try to read from it
-    var indexReader = IndexReader.open(ramDir)
     var indexSearcher = new IndexSearcher(indexReader)
     var fetcher = new ExtractionGroupFetcher(indexSearcher, 10000, 10000, 100000, Set.empty)
     
-    val indexModifier = new ReVerbIndexModifier(fetcher, None, 10, numGroupsToTest/4)
+    testAll(fetcher, firstHalfGroups)
     
-    indexModifier.updateAll(secondHalfLines flatMap lineToOptGroup)
+    val indexModifier = new ReVerbIndexModifier(fetcher, indexWriter, None, 100, 100)
     
-    indexModifier.writer.commit
+    indexModifier.updateAll(secondHalfGroups)
     
-    indexReader = IndexReader.open(indexModifier.writer, true)
-    System.err.println("MaxDoc=%d".format(indexReader.maxDoc))
+    indexReader = IndexReader.open(indexWriter, true)
     indexSearcher = new IndexSearcher(indexReader)
-    fetcher = new ExtractionGroupFetcher(indexSearcher, 10000, 10000, 10000, Set.empty)
+    fetcher = new ExtractionGroupFetcher(indexSearcher, 10000, 10000, 100000, Set.empty)
     
-    System.err.println("Finished adding seconf half. Running test for first half:")
-    // test that each input group can be found in the index
-    def testGroup(group: ExtractionGroup[ReVerbExtraction]): Unit = {
-      val resultGroups = fetcher.getGroups(group.identityQuery)
+    testAll(fetcher, secondHalfGroups)
+  }
+
+  def testAll(fetcher: GroupFetcher, groups: Iterable[REG]): Unit = { groups.foreach(testGroup(fetcher, _)) }
+
+  // test that each input group can be found in the index
+  def testGroup(fetcher: GroupFetcher, group: ExtractionGroup[ReVerbExtraction]): Unit = {
+
+    println(group.identityQuery(false).luceneQueryString)
+    if (!group.identityQuery(false).luceneQueryString.trim.isEmpty) {
+      val resultGroups = fetcher.getGroups(group.identityQuery(false))
       if (!resultGroups.results.toSet.contains(group)) {
         println(); println()
-        println("Expected: %s".format(ReVerbExtractionGroup.toTabDelimited(group)))
+        println("Expected (%d): %s".format(group.instances.size, ReVerbExtractionGroup.toTabDelimited(group)))
 
         println("Found: (%d, %d)".format(resultGroups.numGroups, resultGroups.numInstances))
         resultGroups.results.foreach { resultGroup =>
@@ -86,23 +98,6 @@ class ReVerbIndexModifierTest extends Suite {
         fail()
       }
     }
-    
-    secondHalfLines flatMap lineToOptGroup foreach testGroup
 
-    System.err.println("Second half test queries pass")
-    
-    firstHalfLines flatMap lineToOptGroup foreach testGroup
-    
-    System.err.println("First half test queries pass, running second half")
-
-    
-
-    
-    
-    
-    
-    ramDir.close
-    indexReader.close
-    indexSearcher.close
   }
 }
