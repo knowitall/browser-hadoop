@@ -10,7 +10,6 @@ import edu.washington.cs.knowitall.browser.hadoop.scoobi.ScoobiEntityLinker
 
 import org.apache.lucene.search.IndexSearcher
 
-
 /**
  * Adds collections of unlinked ReVerb ExtractionGroups to an existing index,
  * such as an index created by IndexBuilder.
@@ -18,12 +17,11 @@ import org.apache.lucene.search.IndexSearcher
  * Command-line interface allows the user to skip linking for singleton groups
  * that do not join any new group in the index (this saves a lot of time)
  */
-class ReVerbIndexModifier(val fetcher: ExtractionGroupFetcher, val writerBufferMb: Int, val groupsPerCommit: Int) {
+class ReVerbIndexModifier(val fetcher: ExtractionGroupFetcher, val linker: Option[ScoobiEntityLinker], val writerBufferMb: Int, val groupsPerCommit: Int) {
 
   val searcher = fetcher.indexSearcher
   val reader = fetcher.indexSearcher.getIndexReader
   val writer = new IndexWriter(reader.directory, ReVerbIndexBuilder.indexWriterConfig(writerBufferMb))
-  val linker = ScoobiEntityLinker.getEntityLinker
   
   type REG = ExtractionGroup[ReVerbExtraction]
 
@@ -33,7 +31,7 @@ class ReVerbIndexModifier(val fetcher: ExtractionGroupFetcher, val writerBufferM
     * (will be useful for parallel indexes)
     */
   private def updateGroup(group: REG, onlyIfAlreadyExists: Boolean): Boolean = {
-
+    
     val querySpec = group.identityQuery
     val beforeGroups = fetcher.getGroups(querySpec) match {
       case Timeout(results, _) => throw new RuntimeException("Failed to add document due to timeout.")
@@ -60,10 +58,15 @@ class ReVerbIndexModifier(val fetcher: ExtractionGroupFetcher, val writerBufferM
       // re-run the linker only if the right conditions hold
       if (size == 1 || (size > 10 && size % 2 == 0)) {
         
-        linkedGroup = linker.linkEntities(mergedGroup, reuseLinks = false)
+        linkedGroup = linker match {
+          case Some(scoobiLinker) => scoobiLinker.linkEntities(mergedGroup, reuseLinks = false)
+          case None => linkedGroup
+        }
       }
 
       val document = ReVerbDocumentConverter.toDocument(linkedGroup)
+      println("Adding: "+ ReVerbExtractionGroup.toTabDelimited(group))
+      
       writer.addDocument(document)
 
       return beforeGroups.isEmpty

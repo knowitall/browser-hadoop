@@ -20,39 +20,58 @@ import scala.io.Source
 @RunWith(classOf[JUnitRunner])
 class ReVerbIndexModifierTest extends Suite {
 
-  val numGroupsToTest = 2000
+  val numGroupsToTest = 1000                     
 
-  var inputLines: List[String] = Source.fromInputStream(ResourceUtils.loadResource("test-groups-5.txt", this.getClass()), "UTF-8").getLines.drop(1000).take(numGroupsToTest).toList
+  var rawInputLines: List[String] = Source.fromInputStream(ResourceUtils.loadResource("test-groups-5.txt", this.getClass()), "UTF-8").getLines.drop(1000).take(numGroupsToTest).toList
 
-  private def getExtrsHelper = inputLines.flatMap(e => ReVerbExtractionGroup.fromTabDelimited(e.split("\t"))._1)
+  val inputLines =  rawInputLines flatMap lineToOptGroup flatMap(_.reNormalize) map ReVerbExtractionGroup.toTabDelimited
+  
+  private def lineToOptGroup(e: String) = ReVerbExtractionGroup.fromTabDelimited(e.split("\t"))._1
 
   val stemmer = new MorphaStemmer
-
+  
   @Test
-  def testBuildIndex: Unit = {
-
-
-
+  def testModifyIndex: Unit = {
+    
     val ramDir = new RAMDirectory()
 
-    val indexWriter = new IndexWriter(ramDir, ReVerbIndexBuilder.indexWriterConfig(ramBufferMB=10))
-
+    var indexWriter = new IndexWriter(ramDir, ReVerbIndexBuilder.indexWriterConfig(ramBufferMB=10))
+    
     val indexBuilder = new IndexBuilder(indexWriter, ReVerbIndexBuilder.inputLineConverter(regroup=false), 100)
 
-    System.err.println("Building test index...")
+    val randomizedLines = inputLines //scala.util.Random.shuffle(inputLines)
+    val firstHalfLines = randomizedLines.take(numGroupsToTest/2)
+    val secondHalfLines  = randomizedLines.drop(numGroupsToTest/2)
+    
+    firstHalfLines foreach println
+    secondHalfLines foreach println
+    
+    System.err.println("Building first half of index:")
 
     // build the index
-    indexBuilder.indexAll(inputLines.iterator)
+    indexBuilder.indexAll(firstHalfLines.iterator)
+
+    System.err.println("Finished building first half, adding second half...")
 
     indexWriter.close
-
-    System.err.println("Finished building test index, running test queries")
-
+    
     // open the index and try to read from it
-    val indexReader = IndexReader.open(ramDir)
-    val indexSearcher = new IndexSearcher(indexReader)
-    val fetcher = new ExtractionGroupFetcher(indexSearcher, 1000, 1000, 1000, Set.empty)
-
+    var indexReader = IndexReader.open(ramDir)
+    var indexSearcher = new IndexSearcher(indexReader)
+    var fetcher = new ExtractionGroupFetcher(indexSearcher, 10000, 10000, 100000, Set.empty)
+    
+    val indexModifier = new ReVerbIndexModifier(fetcher, None, 10, numGroupsToTest/4)
+    
+    indexModifier.updateAll(secondHalfLines flatMap lineToOptGroup)
+    
+    indexModifier.writer.commit
+    
+    indexReader = IndexReader.open(indexModifier.writer, true)
+    System.err.println("MaxDoc=%d".format(indexReader.maxDoc))
+    indexSearcher = new IndexSearcher(indexReader)
+    fetcher = new ExtractionGroupFetcher(indexSearcher, 10000, 10000, 10000, Set.empty)
+    
+    System.err.println("Finished adding seconf half. Running test for first half:")
     // test that each input group can be found in the index
     def testGroup(group: ExtractionGroup[ReVerbExtraction]): Unit = {
       val resultGroups = fetcher.getGroups(group.identityQuery)
@@ -60,18 +79,28 @@ class ReVerbIndexModifierTest extends Suite {
         println(); println()
         println("Expected: %s".format(ReVerbExtractionGroup.toTabDelimited(group)))
 
-        println("Found: ")
+        println("Found: (%d, %d)".format(resultGroups.numGroups, resultGroups.numInstances))
         resultGroups.results.foreach { resultGroup =>
-          println(ReVerbExtractionGroup.toTabDelimited(group))
+          println(ReVerbExtractionGroup.toTabDelimited(resultGroup))
         }
         fail()
       }
     }
+    
+    secondHalfLines flatMap lineToOptGroup foreach testGroup
 
-    getExtrsHelper.foreach(testGroup(_))
+    System.err.println("Second half test queries pass")
+    
+    firstHalfLines flatMap lineToOptGroup foreach testGroup
+    
+    System.err.println("First half test queries pass, running second half")
 
-    System.err.println("Test queries pass")
+    
 
+    
+    
+    
+    
     ramDir.close
     indexReader.close
     indexSearcher.close
