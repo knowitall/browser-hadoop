@@ -70,7 +70,7 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
     } else None
   }
 
-  def linkEntities(group: ExtractionGroup[ReVerbExtraction]): ExtractionGroup[ReVerbExtraction] = {
+  def linkEntities(group: ExtractionGroup[ReVerbExtraction], reuseLinks: Boolean): ExtractionGroup[ReVerbExtraction] = {
 
     // a hack for the thread problem
     if (groupsProcessed == 0) {
@@ -88,26 +88,26 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
     val sources = extrs.map(e => e.sentenceTokens.map(_.string).mkString(" "))
     // choose a random linker to distribute the load more evenly across the cluster
     val randomLinker = getRandomElement(subLinkers)
-    val arg1Entity = if (group.arg1Entity.isDefined) group.arg1Entity else getEntity(randomLinker, head.arg1Text, head, sources)
+    val arg1Entity = if (reuseLinks && group.arg1.entity.isDefined) group.arg1.entity else getEntity(randomLinker, head.arg1Text, head, sources)
 
     if (arg1Entity.isDefined) {
       arg1sLinked += 1
     }
 
-    val arg2Entity = if (group.arg2Entity.isDefined) group.arg2Entity else getEntity(randomLinker, head.arg2Text, head, sources)
+    val arg2Entity = if (reuseLinks && group.arg2.entity.isDefined) group.arg2.entity else getEntity(randomLinker, head.arg2Text, head, sources)
 
     if (arg2Entity.isDefined) {
       arg2sLinked += 1
     }
 
     val newGroup = new ExtractionGroup(
-      group.arg1Norm,
-      group.relNorm,
-      group.arg2Norm,
+      group.arg1.norm,
+      group.rel.norm,
+      group.arg2.norm,
       arg1Entity,
       arg2Entity,
-      group.arg1Types,
-      group.arg2Types,
+      group.arg1.types,
+      group.arg2.types,
       group.instances.map(inst => new Instance(inst.extraction, inst.corpus, inst.confidence)))
 
     //
@@ -175,7 +175,7 @@ object ScoobiEntityLinker {
       extrOp match {
         case Some(extr) => {
           if (extr.instances.size <= maxFreq && extr.instances.size >= minFreq) {
-            Some(ReVerbExtractionGroup.toTabDelimited(linker.linkEntities(extr)))
+            Some(ReVerbExtractionGroup.toTabDelimited(linker.linkEntities(extr, reuseLinks = true)))
           } else {
             None
           }
