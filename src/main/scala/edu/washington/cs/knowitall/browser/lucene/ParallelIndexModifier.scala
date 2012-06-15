@@ -21,38 +21,34 @@ class ParallelReVerbIndexModifier(val basicModifiers: Seq[ReVerbIndexModifier], 
   
   private def updateGroup(group: REG): Boolean = {
     
-    for (modifier <- basicModifiers) {
-      val added = modifier.updateGroup(group, onlyIfAlreadyExists=true)
-      if (added) {
-        println("UPDATED")
-        return true
-      }
-    }
-    return false
+    basicModifiers.par.map { modifier => modifier.updateGroup(group, onlyIfAlreadyExists=true) } exists(_ == true)
   }
   
   private def addToRandomGroup(group: REG): Unit = {
     
     val randomModifier = basicModifiers(scala.util.Random.nextInt(basicModifiers.length))
     randomModifier.addGroup(group, true)
-    println("ADDED")
   }
   
   def updateAll(groups: Iterator[REG]): Unit = {
     
     var groupsProcessed = 0
-    
+    var exceptions = 0
     groups.grouped(groupsPerCommit).foreach { groupOfGroups =>
       
       groupOfGroups.foreach { group => 
-        val updated = updateGroup(group)
-        if (!updated) addToRandomGroup(group)
+        try {
+          val updated = updateGroup(group)
+          if (!updated) addToRandomGroup(group)
+        } catch {
+          case e: Exception => { exceptions += 1; e.printStackTrace }
+        }
+        
       }
       
       groupsProcessed += groupOfGroups.size
       basicModifiers map(_.writer.commit())
-      System.err.println("Groups inserted: %d".format(groupsProcessed))
-      
+      System.err.println("Groups inserted: %d, Exceptions: %d".format(groupsProcessed, exceptions))
     }
   }
 }
@@ -79,7 +75,6 @@ object ParallelReVerbIndexModifier {
 
     val indexWriters = indexPaths.map { indexPath =>
       val indexWriter = new IndexWriter(FSDirectory.open(new File(indexPath)), ReVerbIndexBuilder.indexWriterConfig(ramBufferMb))
-      indexWriter.setInfoStream(System.err)
       indexWriter
     }
 
