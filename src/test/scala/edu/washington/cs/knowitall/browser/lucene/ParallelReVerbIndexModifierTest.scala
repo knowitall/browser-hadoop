@@ -24,7 +24,7 @@ class ParallelReVerbIndexModifierTest extends Suite {
   
   val numGroupsToTest = 1000
   
-  val numIndexes = 4
+  val numIndexes = 7
 
   val rawInputLines: List[String] = Source.fromInputStream(ResourceUtils.loadResource("test-groups-5.txt", this.getClass()), "UTF-8").getLines.drop(1000).take(numGroupsToTest).toList
 
@@ -74,7 +74,7 @@ class ParallelReVerbIndexModifierTest extends Suite {
     val indexModifiers = indexWriters map { indexWriter => new ReVerbIndexModifier(indexWriter, None, 100, 100) }
     val parModifier = new ParallelReVerbIndexModifier(indexModifiers, 100)
     
-    parModifier.updateAll(secondHalfGroups)
+    parModifier.updateAll(secondHalfGroups.iterator)
     
     System.err.println("Finished building second half (%d)".format(indexReaders map(_.maxDoc) sum))
     

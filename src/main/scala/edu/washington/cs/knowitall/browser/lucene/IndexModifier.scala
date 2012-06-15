@@ -13,7 +13,7 @@ import org.apache.lucene.search.IndexSearcher
 abstract class IndexModifier {
   type REG = ExtractionGroup[ReVerbExtraction]
   
-  def updateAll(groups: Iterable[ExtractionGroup[ReVerbExtraction]]): Unit
+  def updateAll(groups: Iterator[ExtractionGroup[ReVerbExtraction]]): Unit
   
   def fetcher: GroupFetcher
 }
@@ -84,7 +84,7 @@ class ReVerbIndexModifier(
     var linkedGroup = group
 
     // re-run the linker only if the right conditions hold
-    if (size == 1 || (size > 10 && size % 2 == 0)) {
+    if (size > 1 && (size < 5 || size % 2 == 0)) {
 
       if (tryLink) {
         linkedGroup = linker match {
@@ -100,7 +100,7 @@ class ReVerbIndexModifier(
     writer.addDocument(document)
   }
   
-  def updateAll(groups: Iterable[REG]): Unit = {
+  def updateAll(groups: Iterator[REG]): Unit = {
     
     var groupsProcessed = 0
     

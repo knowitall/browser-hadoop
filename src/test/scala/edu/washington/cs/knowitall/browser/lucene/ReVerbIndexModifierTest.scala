@@ -70,7 +70,7 @@ class ReVerbIndexModifierTest extends Suite {
     
     val indexModifier = new ReVerbIndexModifier(indexWriter, None, 100, 100)
     
-    indexModifier.updateAll(secondHalfGroups)
+    indexModifier.updateAll(secondHalfGroups.iterator)
     
     testAll(indexModifier.fetcher, secondHalfGroups)
     testAll(indexModifier.fetcher, firstHalfGroups)
