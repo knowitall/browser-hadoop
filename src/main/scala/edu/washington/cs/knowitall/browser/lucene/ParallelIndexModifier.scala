@@ -18,10 +18,25 @@ import scala.io.Source
 class ParallelReVerbIndexModifier(val basicModifiers: Seq[ReVerbIndexModifier], groupsPerCommit: Int) extends IndexModifier {
 
   def fetcher = new ParallelExtractionGroupFetcher(basicModifiers.map(_.fetcher))
-  
+
   private def updateGroup(group: REG): Boolean = {
+
+    var exception: Option[Exception] = None
+
+    val updated = basicModifiers.par.map { modifier =>
+      try {
+        modifier.updateGroup(group, onlyIfAlreadyExists = true)
+      } catch {
+        case e: Exception => exception = Some(e)
+      }
+
+    } exists (_ == true)
+
+    exception match {
+      case Some(e) => throw e // epic hacks... to avoid parallel exception handling
+      case None => updated
+    }
     
-    basicModifiers.par.map { modifier => modifier.updateGroup(group, onlyIfAlreadyExists=true) } exists(_ == true)
   }
   
   private def addToRandomGroup(group: REG): Unit = {
