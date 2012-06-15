@@ -18,11 +18,13 @@ import scala.io.Source
 
 
 @RunWith(classOf[JUnitRunner])
-class ReVerbIndexModifierTest extends Suite {
+class ParallelReVerbIndexModifierTest extends Suite {
 
   type REG = ExtractionGroup[ReVerbExtraction]
   
   val numGroupsToTest = 1000
+  
+  val numIndexes = 4
 
   val rawInputLines: List[String] = Source.fromInputStream(ResourceUtils.loadResource("test-groups-5.txt", this.getClass()), "UTF-8").getLines.drop(1000).take(numGroupsToTest).toList
 
@@ -35,11 +37,11 @@ class ReVerbIndexModifierTest extends Suite {
   @Test
   def testModifyIndex: Unit = {
     
-    val ramDir = new RAMDirectory()
+    val ramDirs = (1 to numIndexes) map { _ => new RAMDirectory }
 
-    var indexWriter = new IndexWriter(ramDir, ReVerbIndexBuilder.indexWriterConfig(ramBufferMB=10))
+    var indexWriters = ramDirs map { new IndexWriter(_, ReVerbIndexBuilder.indexWriterConfig(ramBufferMB=10)) }
     
-    val indexBuilder = new IndexBuilder(indexWriter, ReVerbIndexBuilder.inputLineConverter(regroup=false), 100)
+    val indexBuilder = new ParallelIndexBuilder(indexWriters, ReVerbIndexBuilder.inputLineConverter(regroup=false), 100)
 
     val eachHalfSize = numGroupsToTest/2
     
@@ -60,20 +62,24 @@ class ReVerbIndexModifierTest extends Suite {
 
     // build the index
     indexBuilder.indexAll(firstHalfLines.iterator)
-    var indexReader = IndexReader.open(indexWriter, true)
-    System.err.println("Finished building first half (%d), adding second half...".format(indexReader.maxDoc))
+    var indexReaders = indexWriters map { IndexReader.open(_, true) }
+    System.err.println("Finished building first half (%d), adding second half...".format(indexReaders map(_.maxDoc) sum))
     
-    var indexSearcher = new IndexSearcher(indexReader)
-    var fetcher = new ExtractionGroupFetcher(indexSearcher, 10000, 10000, 100000, Set.empty)
+    var indexSearchers = indexReaders map(new IndexSearcher(_))
+    var simpleFetchers = indexSearchers map(searcher=>new ExtractionGroupFetcher(searcher, 10000, 10000, 100000, Set.empty))
+    var parFetcher = new ParallelExtractionGroupFetcher(simpleFetchers)
     
-    testAll(fetcher, firstHalfGroups)
+    testAll(parFetcher, firstHalfGroups)
     
-    val indexModifier = new ReVerbIndexModifier(indexWriter, None, 100, 100)
+    val indexModifiers = indexWriters map { indexWriter => new ReVerbIndexModifier(indexWriter, None, 100, 100) }
+    val parModifier = new ParallelReVerbIndexModifier(indexModifiers, 100)
     
-    indexModifier.updateAll(secondHalfGroups)
+    parModifier.updateAll(secondHalfGroups)
     
-    testAll(indexModifier.fetcher, secondHalfGroups)
-    testAll(indexModifier.fetcher, firstHalfGroups)
+    System.err.println("Finished building second half (%d)".format(indexReaders map(_.maxDoc) sum))
+    
+    testAll(parModifier.fetcher, secondHalfGroups)
+    testAll(parModifier.fetcher, firstHalfGroups)
   }
 
   def testAll(fetcher: GroupFetcher, groups: Iterable[REG]): Unit = { groups.foreach(testGroup(fetcher, _)) }
