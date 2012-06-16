@@ -29,10 +29,6 @@
       <url>http://knowitall.cs.washington.edu/maven2-snapshot</url>
     </repository>
     <repository>
-      <id>kos</id>
-      <url>http://opensource.kantega.no/nexus/content/groups/public/</url>
-    </repository>
-    <repository>
       <id>scala-tools.org</id>
   <name>Scala-tools Maven2 Repository</name>
   <url>http://scala-tools.org/repo-releases</url>
@@ -47,10 +43,6 @@
     </repository>
   </repositories>
   <pluginRepositories>
-    <pluginRepository>
-      <id>kos</id>
-      <url>http://opensource.kantega.no/nexus/content/groups/public/</url>
-    </pluginRepository>
     <pluginRepository>
       <id>scala-tools.org</id>
       <name>Scala-tools Maven2 Repository</name>

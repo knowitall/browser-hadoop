@@ -49,6 +49,7 @@ class ReVerbIndexModifier(
     
     
     val querySpec = QuerySpec.identityQuery(group)
+    
     val queryGroups = fetcher.getGroups(querySpec) match {
       case Timeout(results, _) => throw new RuntimeException("Failed to add document due to timeout.")
       case Limited(results, _) => throw new RuntimeException("Index results were limited... this shouldn't happen!")
