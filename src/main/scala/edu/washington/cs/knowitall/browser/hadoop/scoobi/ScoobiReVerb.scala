@@ -33,6 +33,9 @@ import scala.collection.JavaConversions._
 
 object ScoobiReVerb {
 
+  private val tabSplit = "\t".r
+  private val wsSplit = "\\s".r
+  
   lazy val extractor = new ReVerbExtractor
 
   def main(args: Array[String]): Unit = withHadoopArgs(args) { a =>
@@ -49,33 +52,28 @@ object ScoobiReVerb {
     // serialized ReVerbExtractions
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
 
-    def parseChunkedSentence(strPosChkString: String): Option[ChunkedSentence] = strPosChkString.split("\t") match {
-      case Array(strings, postags, chunks, _*) => try {
-        val (stringSplit, postagSplit, chunkSplit) = (strings.split(" "), postags.split(" "), chunks.split(" "))
-        require(stringSplit.length == postagSplit.length && postagSplit.length == chunkSplit.length)
-        val chunkedSentence = new ChunkedSentence(stringSplit, postagSplit, chunkSplit)
+    def parseChunkedSentence(strs: Seq[String], poss: Seq[String], chks: Seq[String]): Option[ChunkedSentence] = {
+      try {
+        require(strs.length == poss.length && poss.length == chks.length)
+        val chunkedSentence = new ChunkedSentence(strs, poss, chks)
         Some(chunkedSentence)
       } catch {
         case e: Exception => {
-          System.err.println("Error parsing chunked sentence:\n%s\nStack trace:".format(strPosChkString))
+          System.err.println("Error parsing chunked sentence:\n%s\nStack trace:".format((strs, poss, chks)))
           e.printStackTrace
           System.err.println()
           None
         }
       }
-      case _ => {
-        System.err.println("Tab split length bad:n%s\n".format(strPosChkString))
-        None
-      }
     }
 
-    def getChunkedExtractions(strPosChkString: String): Iterable[ChunkedBinaryExtraction] = {
-      parseChunkedSentence(strPosChkString) match {
+    def getChunkedExtractions(strs: Seq[String], poss: Seq[String], chks: Seq[String]): Iterable[ChunkedBinaryExtraction] = {
+      parseChunkedSentence(strs, poss, chks) match {
         case Some(chunkedSentence) => try {
           extractor.extract(chunkedSentence)
         } catch {
           case e: Exception => {
-            System.err.println("Extractor exception for:\n%s\nStack trace:".format(strPosChkString))
+            System.err.println("Extractor exception for:\n%s\nStack trace:".format((strs, poss, chks)))
             e.printStackTrace
             System.err.println()
             None
@@ -85,25 +83,35 @@ object ScoobiReVerb {
       }
     }
 
-    def getBrowserExtractions(strPosChkString: String): Iterable[ReVerbExtraction] = {
+    def getBrowserExtractions(strs: Seq[String], poss: Seq[String], chks: Seq[String], url: String): Iterable[ReVerbExtraction] = {
       
-      val chunkedExtractions = getChunkedExtractions(strPosChkString)
+      val chunkedExtractions = getChunkedExtractions(strs, poss, chks)
       val extractions = chunkedExtractions map { chunkedExtr => 
         val sent = chunkedExtr.getSentence
         val sentenceTokens = ReVerbExtraction.chunkedTokensFromLayers(sent.getTokens, sent.getPosTags, sent.getChunkTags).toIndexedSeq
         val (arg1Range, relRange, arg2Range) = (chunkedExtr.getArgument1.getRange, chunkedExtr.getRelation.getRange, chunkedExtr.getArgument2.getRange)
         val (arg1Interval, relInterval, arg2Interval) = (rangeToInterval(arg1Range), rangeToInterval(relRange), rangeToInterval(arg2Range))
         val urlString = java.net.URLEncoder.encode(sentenceTokens.dropRight(1).map(_.string).mkString(" "), "UTF-8")
-        val sourceUrl = "http://en.wikipedia.org/wiki/Special:Search?search=%s&go=Go".format(urlString)
+        val sourceUrl = url
         new ReVerbExtraction(sentenceTokens, arg1Interval, relInterval, arg2Interval, sourceUrl)
       }
       
       extractions
     }
 
-    val finalExtractions = lines.flatMap { line =>
-      val rvExtrs = getBrowserExtractions(line)
-      rvExtrs map ReVerbExtraction.toTabDelimited
+    def split(str: String) = wsSplit.split(str)
+    
+    val finalExtractions = lines.flatMap { line => 
+      tabSplit.split(line) match {
+        case Array(strs, poss, chks, url, _*) => {
+          val rvExtrs = getBrowserExtractions(split(strs), split(poss), split(chks), url)
+          rvExtrs map ReVerbExtraction.toTabDelimited
+        }
+        case _ => { 
+          System.err.println("Couldn't parse line: %s".format(line))
+          Seq.empty
+        }
+      }
     }
     
     DList.persist(TextOutput.toTextFile(finalExtractions, outputPath + "/"));

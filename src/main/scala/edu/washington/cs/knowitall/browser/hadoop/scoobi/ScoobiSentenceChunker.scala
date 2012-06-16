@@ -42,18 +42,25 @@ object ScoobiSentenceChunker {
     // serialized ReVerbExtractions
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
 
-    def sentenceToTriple(toks: Seq[ChunkedToken]): String = {
+    def sentenceToTriple(toks: Seq[ChunkedToken], url: String): String = {
       val strs = toks.map(_.string.trim).mkString(" ")
       val poss = toks.map(_.postag.trim).mkString(" ")
       val chks = toks.map(_.chunk.trim).mkString(" ")
       
-      Seq(strs, poss, chks).mkString("\t")
+      Seq(strs, poss, chks, url).mkString("\t")
     }
     
-    val output = lines.map { line =>
-      val toks = chunker.chunk(line)
-      val result = sentenceToTriple(toks)
-      result
+    val output = lines.flatMap { line =>
+      line.split("\t") match {
+        case Array(rawSent, url, _*) => {
+          val toks = chunker.chunk(rawSent)
+          val result = sentenceToTriple(toks, url)
+          Some(result)
+        }
+        case _ => None
+      }
+      
+      
     }
     
     DList.persist(TextOutput.toTextFile(output, outputPath + "/"));
