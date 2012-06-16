@@ -61,16 +61,14 @@ object ScoobiGroupReGrouper {
         group.instances
     }
     
-    val head = parsedGroups.head
+    // if there are several groups, we want to be sure to use one with an entity attached. For now, we 
+    // assume that there would be at most one entity, so we can dodge the problem of what to do if
+    // there were several.
+    // Or if one group had an arg1 link and the other group had an arg2 link.
     
-    val combinedGroup = new ExtractionGroup(head.arg1Norm,
-        head.relNorm,
-        head.arg2Norm,
-        head.arg1Entity,
-        head.arg2Entity,
-        head.arg1Types,
-        head.arg2Types,
-        allInstances.take(ScoobiReVerbGrouper.max_group_size).toSet)
+    val head = parsedGroups.find(group=>group.arg1.hasEntity || group.arg2.hasEntity).getOrElse(parsedGroups.head)
+    
+    val combinedGroup = new ExtractionGroup(head.arg1, head.rel, head.arg2, allInstances.take(ScoobiReVerbGrouper.max_group_size).toSet)
     
     groupsProcessed += parsedGroups.size
     if (groupsProcessed % 10000 == 0) System.err.println("Groups combined: %d".format(groupsProcessed))
@@ -94,14 +92,7 @@ object ScoobiGroupReGrouper {
     // go through and assign confs to any extractions without them
     val confedInstances = group.instances.map { inst => if (inst.confidence < 0) tryAddConf(inst) else inst }
 
-    val newGroup = new ExtractionGroup(group.arg1Norm,
-      group.relNorm,
-      group.arg2Norm,
-      group.arg1Entity,
-      group.arg2Entity,
-      group.arg1Types,
-      group.arg2Types,
-      confedInstances)
+    val newGroup = new ExtractionGroup(group.arg1, group.rel, group.arg2, confedInstances)
 
     Some(newGroup)
   }
