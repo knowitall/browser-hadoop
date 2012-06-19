@@ -31,14 +31,14 @@ class ScoobiEntityTyper(val cacheClient: Option[MemcachedClient]) {
 
   def typeSingleGroup[E <: Extraction](group: ExtractionGroup[E]): ExtractionGroup[E] = {
 
-    val arg1Types = group.arg1Entity match {
+    val arg1Types = group.arg1.entity match {
       case Some(entity) => getRandomElement(fbLookupTables).getTypesForEntity(entity.fbid).flatMap { typeString =>
         try { FreeBaseType.parse(typeString) }
         catch { case iae: IllegalArgumentException => { System.err.println(typeString); None } }
       }
       case None => Nil
     }
-    val arg2Types = group.arg2Entity match {
+    val arg2Types = group.arg2.entity match {
       case Some(entity) => getRandomElement(fbLookupTables).getTypesForEntity(entity.fbid).flatMap { typeString =>
         try { FreeBaseType.parse(typeString) }
         catch { case iae: IllegalArgumentException => { System.err.println(typeString); None } }
@@ -47,11 +47,11 @@ class ScoobiEntityTyper(val cacheClient: Option[MemcachedClient]) {
     }
 
     new ExtractionGroup[E](
-      group.arg1Norm,
-      group.relNorm,
-      group.arg2Norm,
-      group.arg1Entity,
-      group.arg2Entity,
+      group.arg1.norm,
+      group.rel.norm,
+      group.arg2.norm,
+      group.arg1.entity,
+      group.arg2.entity,
       arg1Types.toSet,
       arg2Types.toSet,
       group.instances)

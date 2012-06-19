@@ -51,12 +51,12 @@ object ScoobiInlinkRatioComputer {
     val argKeyValuePairs = groups.map {
       case (group, line) =>
         if (processArg1) {
-          group.arg1Entity match {
+          group.arg1.entity match {
             case Some(entity) => (entity.fbid, line)
             case None => ("*NO_ENTITY*", line)
           }
         } else {
-          group.arg2Entity match {
+          group.arg2.entity match {
             case Some(entity) => (entity.fbid, line)
             case None => ("*NO_ENTITY*", line)
           }
@@ -79,7 +79,7 @@ object ScoobiInlinkRatioComputer {
     
     val rawProcGroup = rawExtrGroups.head
     val procGroup = ReVerbExtractionGroup.fromTabDelimited(rawProcGroup.split("\t"))._1.get
-    val procEntity = if (arg1) procGroup.arg1Entity.get else procGroup.arg2Entity.get
+    val procEntity = if (arg1) procGroup.arg1.entity.get else procGroup.arg2.entity.get
     def size = rawExtrGroups.size
     val inlinks = procEntity.inlinkRatio
     def ratio = size.toDouble / inlinks.toDouble

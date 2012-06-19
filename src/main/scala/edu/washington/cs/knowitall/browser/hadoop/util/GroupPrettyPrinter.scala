@@ -19,11 +19,11 @@ object GroupPrettyPrinter {
     val rel = head.relTokens.mkString(" ")
     val arg2 = head.arg2Tokens.mkString(" ")
     
-    val arg1E = group.arg1Entity match {
+    val arg1E = group.arg1.entity match {
       case Some(entity) => (entity.name, entity.fbid).toString
       case None => "none"
     }
-    val arg2E = group.arg2Entity match {
+    val arg2E = group.arg2.entity match {
       case Some(entity) => (entity.name, entity.fbid).toString
       case None => "none"
     }

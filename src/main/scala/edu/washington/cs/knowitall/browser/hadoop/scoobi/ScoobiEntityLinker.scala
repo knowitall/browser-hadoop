@@ -154,7 +154,7 @@ object ScoobiEntityLinker {
   def getRandomElement[T](seq: Seq[T]): T = seq(Random.nextInt(seq.size))
 
   def getEntityLinker = {
-    val el = getScratch(baseIndex).map(index => new EntityLinker(index, cacheClient.getOrElse(null))) // java doesn't have Option
+    val el = getScratch(baseIndex).map(index => new EntityLinker(index)) // java doesn't have Option
     new ScoobiEntityLinker(el, TaggedStemmer.threadLocalInstance)
   }
 
