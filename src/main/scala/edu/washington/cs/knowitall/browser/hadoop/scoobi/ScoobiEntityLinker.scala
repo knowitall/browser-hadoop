@@ -33,9 +33,6 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
 
 import scopt.OptionParser
 
-import net.rubyeye.xmemcached.XMemcachedClientBuilder
-import net.rubyeye.xmemcached.MemcachedClient
-
 /**
   * A mapper job that
   * takes tab-delimited ReVerbExtractions as input, groups them by a normalization key, and
@@ -51,7 +48,7 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
   import ScoobiEntityLinker.getRandomElement
   import ScoobiEntityLinker.min_arg_length
 
-  private val scoobiTyper = new ScoobiEntityTyper(ScoobiEntityLinker.cacheClient)
+  private val scoobiTyper = new ScoobiEntityTyper()
   
   private var groupsProcessed = 0
   private var arg1sLinked = 0
@@ -126,8 +123,6 @@ object ScoobiEntityLinker {
     val localhost = java.net.InetAddress.getLocalHost.getHostName
     Seq(new InetSocketAddress(localhost, cachePort)) 
   }
-  
-  val cacheClient: Option[MemcachedClient] = None // new XMemcachedClientBuilder(cacheNodes).build()
                           
   private val min_arg_length = 3
   val linkersLocal = new mutable.HashMap[Thread, ScoobiEntityLinker] with mutable.SynchronizedMap[Thread, ScoobiEntityLinker]

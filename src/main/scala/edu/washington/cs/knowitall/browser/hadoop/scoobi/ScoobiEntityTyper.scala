@@ -15,19 +15,18 @@ import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.browser.hadoop.util.FbTypeLookup
 
 import edu.washington.cs.knowitall.common.Timing
-import net.rubyeye.xmemcached.MemcachedClient
 
 /**
   * Does type lookup for freebase entities (fills in the argXTypes field in an extractionGroup)
   */
-class ScoobiEntityTyper(val cacheClient: Option[MemcachedClient]) {
+class ScoobiEntityTyper {
 
   import ScoobiEntityLinker.getRandomElement
 
   lazy val fbEntityIndexes = ScoobiEntityLinker.getScratch("browser-freebase/type-lookup-index/")
   lazy val fbTypeEnumFile = "/scratch/browser-freebase/fbTypeEnum.txt"
 
-  private lazy val fbLookupTables = fbEntityIndexes.map(index => new FbTypeLookup(index, fbTypeEnumFile, cacheClient))
+  private lazy val fbLookupTables = fbEntityIndexes.map(index => new FbTypeLookup(index, fbTypeEnumFile))
 
   def typeSingleGroup[E <: Extraction](group: ExtractionGroup[E]): ExtractionGroup[E] = {
 
@@ -79,7 +78,7 @@ object ScoobiEntityTyper {
 
   val minCompletionSeconds = 90
 
-  val typerLocal = new ThreadLocal[ScoobiEntityTyper]() { override def initialValue() = new ScoobiEntityTyper(ScoobiEntityLinker.cacheClient) }
+  val typerLocal = new ThreadLocal[ScoobiEntityTyper]() { override def initialValue() = new ScoobiEntityTyper() }
   
   def main(args: Array[String]) = withHadoopArgs(args) { remainingArgs =>
 

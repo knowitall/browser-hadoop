@@ -36,16 +36,11 @@ import java.io.File
 
 import edu.washington.cs.knowitall.common.Resource.using
 
-import net.rubyeye.xmemcached.MemcachedClient
-
-
 import java.util.concurrent.TimeoutException
 
-class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[Int, String], val cacheClient: Option[MemcachedClient]) {
+class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[Int, String]) {
   
   private var timeouts = 0
-  
-  if (cacheClient == null) System.err.println("Warning, cacheclient is null")
   
   import FbTypeLookup.badTypes
   import FbTypeLookup.memcachedTimeoutMillis
@@ -53,8 +48,8 @@ class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[
   // typeIntToTypeStringMap could probably just be an indexedSeq for a slight performance gain,
   // but then you have to deal with the chance that some int isn't in the enumeration separately.
   
-  def this(indexPath: String, typeEnumFile: String, cacheClient: Option[MemcachedClient]) = 
-    this(FbTypeLookup.loadIndex(indexPath), FbTypeLookup.loadEnumFile(typeEnumFile), cacheClient)
+  def this(indexPath: String, typeEnumFile: String) = 
+    this(FbTypeLookup.loadIndex(indexPath), FbTypeLookup.loadEnumFile(typeEnumFile))
 
   def getTypesForEntity(entityFbid: String): List[String] = {
     getOrElseUpdateCache(entityFbid, getTypesForEntityUncached _)
@@ -76,25 +71,7 @@ class FbTypeLookup(val searcher: IndexSearcher, val typeIntToTypeStringMap: Map[
   
   private def getOrElseUpdateCache(entityFbid: String, updater: String => List[String]): List[String] = {
 
-    if (cacheClient == null || cacheClient.isEmpty) return updater(entityFbid)
-
-    val cacheKey = memcachedKey(entityFbid)
-    try {
-      val result = cacheClient.get.get(cacheKey, memcachedTimeoutMillis).asInstanceOf[List[String]]
-      if (result == null) {
-        val newResult = updater(entityFbid)
-        cacheClient.get.add(cacheKey, 36000, newResult)
-        return newResult
-      } else {
-        return result.asInstanceOf[List[String]]
-      }
-    } catch {
-      case tex: TimeoutException => {
-        timeouts += 1
-        System.err.println("Warning, timeout num %s for entity %s".format(timeouts, entityFbid))
-        updater(entityFbid)
-      }
-    }
+    return updater(entityFbid)
   }
   
   def memcachedKey(fbid: String): String = {
@@ -151,7 +128,7 @@ object FbTypeLookup {
     }
     if (!parser.parse(args)) return
     
-    val lookup = new FbTypeLookup(entityFile, enumFile, null)
+    val lookup = new FbTypeLookup(entityFile, enumFile)
 
     val fbids = Seq("03gss12", "0260w54", "0260xrp", "02610rn", "02610t0")
     
