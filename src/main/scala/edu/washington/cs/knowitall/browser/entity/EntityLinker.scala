@@ -9,7 +9,7 @@ import org.apache.lucene.index.CorruptIndexException
 
 import scala.collection.JavaConversions._
 
-import edu.washington.cs.knowitall.browser.hadoop.scoobi.ScoobiEntityTyper
+//import edu.washington.cs.knowitall.browser.hadoop.scoobi.EntityTyper
 
 class EntityLinker(val bm: batch_match, val oneT: TopCandidatesFinder) {
 
@@ -26,13 +26,15 @@ class EntityLinker(val bm: batch_match, val oneT: TopCandidatesFinder) {
 
   def getBestEntity(arg: String, sourceSentences: Seq[String]): Entity = {
     
-    val entityNoTypes = getBestFbidFromSources(arg, sourceSentences)
+    val entity = getBestFbidFromSources(arg, sourceSentences)
     
-    if (entityNoTypes == null) return null
+    if (entity == null) return null
     
-    val typedEntity = ScoobiEntityTyper.typerLocal.get.typeEntity(entityNoTypes)
+    val typedEntity = EntityTyper.typerLocal.get.typeEntity(entity)
     
     return typedEntity
+    
+    
   }
   
   /**

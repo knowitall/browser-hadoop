@@ -51,8 +51,6 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
 
   import ScoobiEntityLinker.getRandomElement
   import ScoobiEntityLinker.min_arg_length
-
-  private val scoobiTyper = new ScoobiEntityTyper()
   
   private var groupsProcessed = 0
   private var arg1sLinked = 0
