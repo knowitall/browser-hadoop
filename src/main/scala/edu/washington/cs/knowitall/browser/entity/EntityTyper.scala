@@ -8,14 +8,9 @@ import scala.collection.JavaConversions._
 /**
   * Does type lookup for freebase entities (fills in the argXTypes field in an extractionGroup)
   */
-class EntityTyper {
+class EntityTyper(val fbLookupTable: FbTypeLookup) {
 
-  def getRandomElement[T](seq: Seq[T]): T = seq(scala.util.Random.nextInt(seq.size))
-
-  lazy val fbEntityIndexes = ScoobiEntityLinker.getScratch("browser-freebase/type-lookup-index/")
-  lazy val fbTypeEnumFile = "/scratch/browser-freebase/fbTypeEnum.txt"
-
-  private lazy val fbLookupTables = fbEntityIndexes.map(index => new FbTypeLookup(index, fbTypeEnumFile))
+  def this(basePath: String) = this(new FbTypeLookup(basePath+EntityTyper.typeLookupIndex, basePath+EntityTyper.fbTypeEnumFile))
 
   /**
    * mutator method to 
@@ -24,15 +19,15 @@ class EntityTyper {
     
     val fbid = entity.fbid
 
-    val types = getRandomElement(fbLookupTables).getTypesForEntity(entity.fbid)
+    val types = fbLookupTable.getTypesForEntity(entity.fbid)
     
     entity.attachTypes(types)
 
     return entity
   }
 }
-object EntityTyper {
 
-  val typerLocal = new ThreadLocal[EntityTyper]() { override def initialValue() = new EntityTyper() }
-  
+object EntityTyper {
+  val typeLookupIndex = "type-lookup-index/"
+  val fbTypeEnumFile = "fbTypeEnum.txt"
 }

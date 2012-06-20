@@ -11,16 +11,16 @@ import scala.collection.JavaConversions._
 
 //import edu.washington.cs.knowitall.browser.hadoop.scoobi.EntityTyper
 
-class EntityLinker(val bm: batch_match, val oneT: TopCandidatesFinder) {
+class EntityLinker(val bm: batch_match, val oneT: TopCandidatesFinder, val typer: EntityTyper) {
 
-  private val PAD_SOURCES = 4; // extend source sentences to this
+  private val PAD_SOURCES = 4 // extend source sentences to this
   // number minimum
-
+  
   private var totalLookups = 0
   private var cacheHits = 0
   private var cacheTimeouts = 0
 
-  def this(contextSimIndex: String) = this(new batch_match(contextSimIndex), new TopCandidatesFinder())
+  def this(basePath: String) = this(new batch_match(basePath + "3-context-sim/index"), new TopCandidatesFinder(), new EntityTyper(basePath))
 
   private def tryFbidCache(arg: String): Seq[String] = oneT.linkToFbids(arg)
 
@@ -30,11 +30,9 @@ class EntityLinker(val bm: batch_match, val oneT: TopCandidatesFinder) {
     
     if (entity == null) return null
     
-    val typedEntity = EntityTyper.typerLocal.get.typeEntity(entity)
+    val typedEntity = typer.typeEntity(entity)
     
     return typedEntity
-    
-    
   }
   
   /**

@@ -33,8 +33,6 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedArgumentExtraction
 
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
 
-import edu.washington.cs.knowitall.browser.entity.EntityLinker
-
 import scopt.OptionParser
 
 /**
@@ -145,7 +143,7 @@ object ScoobiEntityLinker {
   // hardcoded for the rv cluster - the location of Tom's freebase context similarity index.
   // Indexes are on the /scratchX/ where X in {"", 2, 3, 4}, the method getScratch currently
   // decides how to pick one of the choices.
-  val baseIndex = "browser-freebase/3-context-sim/index"
+  
 
   /** Get a random scratch directory on an RV node. */
   def getScratch(pathAfterScratch: String): Seq[String] = {
@@ -156,6 +154,8 @@ object ScoobiEntityLinker {
     }
   }
 
+  val baseIndex = "browser-freebase/"
+  
   case class Counter(var count: Int) { def inc(): Unit = { count += 1 } }
   val counterLocal = new ThreadLocal[Counter]() { override def initialValue = Counter(0) }
 
