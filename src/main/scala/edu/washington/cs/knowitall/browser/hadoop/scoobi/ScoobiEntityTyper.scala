@@ -8,6 +8,8 @@ import com.nicta.scoobi.io.text.TextInput
 import com.nicta.scoobi.io.text.TextOutput._
 import com.nicta.scoobi.io.text.TextOutput
 
+import edu.washington.cs.knowitall.browser.entity.Entity
+
 import edu.washington.cs.knowitall.browser.extraction.FreeBaseType
 import edu.washington.cs.knowitall.browser.extraction.Extraction
 import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
@@ -16,19 +18,35 @@ import edu.washington.cs.knowitall.browser.hadoop.util.FbTypeLookup
 
 import edu.washington.cs.knowitall.common.Timing
 
+import scala.collection.JavaConversions._
+
 /**
   * Does type lookup for freebase entities (fills in the argXTypes field in an extractionGroup)
   */
 class ScoobiEntityTyper {
 
-  import ScoobiEntityLinker.getRandomElement
+  def getRandomElement[T](seq: Seq[T]): T = seq(scala.util.Random.nextInt(seq.size))
 
   lazy val fbEntityIndexes = ScoobiEntityLinker.getScratch("browser-freebase/type-lookup-index/")
   lazy val fbTypeEnumFile = "/scratch/browser-freebase/fbTypeEnum.txt"
 
   private lazy val fbLookupTables = fbEntityIndexes.map(index => new FbTypeLookup(index, fbTypeEnumFile))
 
-  def typeSingleGroup[E <: Extraction](group: ExtractionGroup[E]): ExtractionGroup[E] = {
+  /**
+   * mutator method to 
+   */
+  def typeEntity(entity: Entity): Entity = {
+    
+    val fbid = entity.fbid
+
+    val types = getRandomElement(fbLookupTables).getTypesForEntity(entity.fbid)
+    
+    entity.attachTypes(types)
+
+    return entity
+  }
+  
+  private def typeSingleGroup[E <: Extraction](group: ExtractionGroup[E]): ExtractionGroup[E] = {
 
     val arg1Types = group.arg1.entity match {
       case Some(entity) => getRandomElement(fbLookupTables).getTypesForEntity(entity.fbid).flatMap { typeString =>

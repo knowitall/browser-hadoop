@@ -20,16 +20,20 @@ import scala.collection.mutable
 import edu.washington.cs.knowitall.common.Timing._
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 import edu.washington.cs.knowitall.browser.extraction.FreeBaseEntity
+import edu.washington.cs.knowitall.browser.extraction.FreeBaseType
 import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.Instance
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.browser.util.TaggedStemmer
-import edu.washington.cs.knowitall.browser.hadoop.entity.TopCandidatesFinder
-import edu.washington.cs.knowitall.browser.hadoop.entity.EntityLinker
-import edu.washington.cs.knowitall.browser.hadoop.entity.Pair
+import edu.washington.cs.knowitall.browser.entity.TopCandidatesFinder
+import edu.washington.cs.knowitall.browser.entity.EntityLinker
+import edu.washington.cs.knowitall.browser.entity.Pair
+import edu.washington.cs.knowitall.browser.entity.Entity
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedArgumentExtraction
 
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
+
+import edu.washington.cs.knowitall.browser.entity.EntityLinker
 
 import scopt.OptionParser
 
@@ -55,16 +59,22 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
   private var arg2sLinked = 0
   private var totalGroups = 0
   
-  def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Set[String]): Option[FreeBaseEntity] = {
+  def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Set[String]): Option[Entity] = {
 
     if (arg.length < min_arg_length) None
 
-    val tryLink = el.getBestFbidFromSources(arg, sources.toSeq)
+    val tryLink = el.getBestEntity(arg, sources.toSeq)
 
-    if (tryLink != null) {
-      val fbEntity = FreeBaseEntity(tryLink.name, tryLink.fbid, tryLink.score, tryLink.inlinks)
-      Some(fbEntity)
-    } else None
+    if (tryLink == null) None else Some(tryLink)
+  }
+  
+  def entityConversion(entity: Entity): (Option[FreeBaseEntity], Set[FreeBaseType]) = {
+    
+    val fbEntity = FreeBaseEntity(entity.name, entity.fbid, entity.score, entity.inlinks)
+    
+    val fbTypes = entity.retrieveTypes flatMap FreeBaseType.parse toSet
+    
+    (Some(fbEntity), fbTypes)
   }
 
   def linkEntities(group: ExtractionGroup[ReVerbExtraction], reuseLinks: Boolean): ExtractionGroup[ReVerbExtraction] = {
@@ -85,16 +95,25 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
     val sources = extrs.map(e => e.sentenceTokens.map(_.string).mkString(" "))
     // choose a random linker to distribute the load more evenly across the cluster
     val randomLinker = getRandomElement(subLinkers)
-    val arg1Entity = if (reuseLinks && group.arg1.entity.isDefined) group.arg1.entity else getEntity(randomLinker, head.arg1Text, head, sources)
-
-    if (arg1Entity.isDefined) {
-      arg1sLinked += 1
+    
+    val (arg1Entity, arg1Types) = if (reuseLinks && group.arg1.entity.isDefined) {
+      (group.arg1.entity, group.arg1.types) 
+    } else {
+      getEntity(randomLinker, head.arg1Text, head, sources) match {
+        case Some(rawEntity) => { arg1sLinked += 1; entityConversion(rawEntity) }
+        case None => (Option.empty[FreeBaseEntity], Set.empty[FreeBaseType])
+      }
     }
+    
 
-    val arg2Entity = if (reuseLinks && group.arg2.entity.isDefined) group.arg2.entity else getEntity(randomLinker, head.arg2Text, head, sources)
 
-    if (arg2Entity.isDefined) {
-      arg2sLinked += 1
+    val (arg2Entity, arg2Types) = if (reuseLinks && group.arg2.entity.isDefined) {
+      (group.arg2.entity, group.arg2.types) 
+    } else {
+      getEntity(randomLinker, head.arg2Text, head, sources) match {
+        case Some(rawEntity) => { arg2sLinked += 1; entityConversion(rawEntity) }
+        case None => (Option.empty[FreeBaseEntity], Set.empty[FreeBaseType])
+      }
     }
 
     val newGroup = new ExtractionGroup(
@@ -103,15 +122,11 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
       group.arg2.norm,
       arg1Entity,
       arg2Entity,
-      group.arg1.types,
-      group.arg2.types,
+      arg1Types,
+      arg2Types,
       group.instances.map(inst => new Instance(inst.extraction, inst.corpus, inst.confidence)))
-
-    //
-
-    // Do type lookup (relatively expensive)
-    val typedGroup = scoobiTyper.typeSingleGroup(newGroup)
-    typedGroup
+    
+    newGroup
   }
 }
 
