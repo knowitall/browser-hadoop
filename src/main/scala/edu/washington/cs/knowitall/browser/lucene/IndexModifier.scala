@@ -32,7 +32,7 @@ class ReVerbIndexModifier(
     val groupsPerCommit: Int) extends IndexModifier {
 
   
-  def fetcher = new ExtractionGroupFetcher(new IndexSearcher(IndexReader.open(writer, true)), 1000, 1000, 10000, Set.empty)
+  def fetcher = new ExtractionGroupFetcher(new IndexSearcher(IndexReader.open(writer, true)), 1000, 1000, 10000, Set.empty[String])
   val searcher = fetcher.indexSearcher
   val reader = fetcher.indexSearcher.getIndexReader
   
