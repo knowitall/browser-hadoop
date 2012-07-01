@@ -64,7 +64,7 @@ class ReVerbIndexModifierTest extends Suite {
     System.err.println("Finished building first half (%d), adding second half...".format(indexReader.maxDoc))
     
     var indexSearcher = new IndexSearcher(indexReader)
-    var fetcher = new ExtractionGroupFetcher(indexSearcher, 10000, 10000, 100000, Set.empty)
+    var fetcher = new ExtractionGroupFetcher(indexSearcher, 10000, 10000, 100000, Set.empty[String])
     
     testAll(fetcher, firstHalfGroups)
     
