@@ -66,7 +66,7 @@ class ParallelReVerbIndexModifierTest extends Suite {
     System.err.println("Finished building first half (%d), adding second half...".format(indexReaders map(_.maxDoc) sum))
     
     var indexSearchers = indexReaders map(new IndexSearcher(_))
-    var simpleFetchers = indexSearchers map(searcher=>new ExtractionGroupFetcher(searcher, 10000, 10000, 100000, Set.empty))
+    var simpleFetchers = indexSearchers map(searcher=>new ExtractionGroupFetcher(searcher, 10000, 10000, 100000, Set.empty[String]))
     var parFetcher = new ParallelExtractionGroupFetcher(simpleFetchers)
     
     testAll(parFetcher, firstHalfGroups)
