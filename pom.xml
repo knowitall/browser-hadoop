@@ -96,16 +96,16 @@
       <artifactId>junit</artifactId>
       <version>4.10</version>
     </dependency>
-    <dependency>
-      <groupId>org.scalatest</groupId>
-      <artifactId>scalatest_2.9.1</artifactId>
-      <version>1.7.1</version>
-    </dependency>
-    <dependency>
-      <groupId>edu.washington.cs.knowitall</groupId>
-      <artifactId>nlptools-chunk-opennlp</artifactId>
-      <version>2.1.0</version>
-    </dependency>
+	<dependency>
+		<groupId>org.scalatest</groupId>
+		<artifactId>scalatest_2.9.1</artifactId>
+		<version>1.7.1</version>
+	</dependency>
+	<dependency>
+		<groupId>edu.washington.cs.knowitall.nlptools</groupId>
+		<artifactId>nlptools-chunk-opennlp_2.9.2</artifactId>
+		<version>2.2.0</version>
+	</dependency>
   </dependencies>
 
   <build>

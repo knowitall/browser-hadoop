@@ -146,9 +146,9 @@ object ScoobiEntityLinker {
   
 
   /** Get a random scratch directory on an RV node. */
-  def getScratch(pathAfterScratch: String): Seq[String] = {
+  def getScratch(num: Int)(pathAfterScratch: String): Seq[String] = {
 
-    for (i <- 1 to 4) yield {
+    for (i <- 1 to num) yield {
       val numStr = if (i == 1) "" else i.toString
       "/scratch%s/".format(numStr) + pathAfterScratch
     }
@@ -161,8 +161,10 @@ object ScoobiEntityLinker {
 
   def getRandomElement[T](seq: Seq[T]): T = seq(Random.nextInt(seq.size))
 
-  def getEntityLinker = {
-    val el = getScratch(baseIndex).map(index => new EntityLinker(index)) // java doesn't have Option
+  def getEntityLinker: ScoobiEntityLinker = getEntityLinker(4)
+  
+  def getEntityLinker(num: Int): ScoobiEntityLinker = {
+    val el = getScratch(num)(baseIndex).map(index => new EntityLinker(index)) // java doesn't have Option
     new ScoobiEntityLinker(el, TaggedStemmer.threadLocalInstance)
   }
 
