@@ -89,7 +89,7 @@ class ReVerbIndexModifier(
 
       if (tryLink) {
         linkedGroup = linker match {
-          case Some(scoobiLinker) => scoobiLinker.linkEntities(group, reuseLinks = false)
+          case Some(scoobiLinker) => scoobiLinker.linkEntities(reuseLinks = false)(group)
           case None => linkedGroup
         }
       } else linkedGroup
