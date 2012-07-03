@@ -73,7 +73,7 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
     (Some(fbEntity), fbTypes)
   }
 
-  def linkEntities(group: ExtractionGroup[ReVerbExtraction], reuseLinks: Boolean): ExtractionGroup[ReVerbExtraction] = {
+  def linkEntities(reuseLinks: Boolean)(group: ExtractionGroup[ReVerbExtraction]): ExtractionGroup[ReVerbExtraction] = {
 
     // a hack for the thread problem
     if (groupsProcessed == 0) {
@@ -183,7 +183,7 @@ object ScoobiEntityLinker {
       extrOp match {
         case Some(extr) => {
           if (extr.instances.size <= maxFreq && extr.instances.size >= minFreq) {
-            Some(ReVerbExtractionGroup.toTabDelimited(linker.linkEntities(extr, reuseLinks = true)))
+            Some(ReVerbExtractionGroup.toTabDelimited(linker.linkEntities(reuseLinks = true)(extr)))
           } else {
             None
           }
