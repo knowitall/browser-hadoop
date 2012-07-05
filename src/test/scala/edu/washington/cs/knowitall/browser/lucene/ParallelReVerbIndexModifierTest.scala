@@ -41,7 +41,7 @@ class ParallelReVerbIndexModifierTest extends Suite {
 
     var indexWriters = ramDirs map { new IndexWriter(_, ReVerbIndexBuilder.indexWriterConfig(ramBufferMB=10)) }
     
-    val indexBuilder = new ParallelIndexBuilder(indexWriters, ReVerbIndexBuilder.inputLineConverter(regroup=false), 100)
+    val indexBuilder = new ParallelIndexBuilder(indexWriters, ReVerbIndexBuilder.inputLineConverter(regroup=false,filter=false), 100)
 
     val eachHalfSize = numGroupsToTest/2
     
