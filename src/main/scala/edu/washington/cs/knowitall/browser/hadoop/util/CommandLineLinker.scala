@@ -7,41 +7,67 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 
 import edu.washington.cs.knowitall.common.Resource.using
+import edu.washington.cs.knowitall.common.Timing
 import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.ScoobiEntityLinker
 
-/** reads REGs from standard input. Writes them back to standard output. */
-object CommandLineLinker {
-
-  private val tabSplit = "\t".r
+class CommandLineLinker(val source: Source, val output: PrintStream) {
+    private val tabSplit = "\t".r
   
   type REG = ExtractionGroup[ReVerbExtraction]
   
-  def linkData(input: Source, output: PrintStream): Unit = {
+  def linkData: Unit = {
     
     def toGroups(line: String): Option[REG] = {
       ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(line))._1
     }
     
-    val linker = ScoobiEntityLinker.getEntityLinker(1)
-    // convert input lines to REGs
-    val groups = input.getLines flatMap toGroups 
-    val linkedGroups = groups map linker.linkEntities(reuseLinks = false)
-    val strings = linkedGroups map ReVerbExtractionGroup.toTabDelimited
-    strings foreach(output.println(_))
+    var groupsProcessed = 0
+    
+    val runtimeNanos = Timing.time { 
+      val linker = ScoobiEntityLinker.getEntityLinker(1)
+      // convert input lines to REGs
+      val groups = source.getLines flatMap(line=>{groupsProcessed += 1; toGroups(line)})
+      val linkedGroups = groups map linker.linkEntities(reuseLinks = false)
+      val strings = linkedGroups map ReVerbExtractionGroup.toTabDelimited
+      strings foreach(output.println(_))
+    }
+    
+    val runtimeString = Timing.Seconds.format(runtimeNanos)
+    val groupsProcString = groupsProcessed.toString
+    val msecPerGroup = Timing.Milliseconds.format(runtimeNanos/groupsProcessed)
+    
+    System.err.println("Running time: %s sec, Groups processed: %s, %s msec/group".format(runtimeString, groupsProcString, msecPerGroup))
   }
-  
+}
+
+/** reads REGs from standard input. Writes them back to standard output. */
+object CommandLineLinker {
+
   def main(args: Array[String]): Unit = {
 
-    val inputFile = args(0)
-    
-    val inputReader = new BufferedReader(new InputStreamReader(System.in))
-    
-   linkData(Source.fromFile(inputFile), System.out)
-   
-   inputReader.close
+    //var basePath = ScoobiEntityLinker.baseIndex
+    var inputFile = ""
+    var outputFile = ""
+
+    val parser = new OptionParser() {
+      opt("inputFile", "File to read for extractionGroup input, default standard input", { str => inputFile = str })
+      opt("outputFile", "File to write linked ExtractionGroups to, default stdouts", { str => outputFile = str })
+      //opt("basePath", "Base path for linker support files", { str => basePath = str })
+    }
+
+    if (!parser.parse(args)) return
+
+    val source = if (!inputFile.isEmpty) Source.fromFile(inputFile) else Source.fromInputStream(System.in)
+
+    val output = if (!outputFile.isEmpty) new java.io.PrintStream(new java.io.FileOutputStream(outputFile)) else System.out
+
+    new CommandLineLinker(source, output).linkData
+
+    source.close()
+    output.close()
   }
 }
