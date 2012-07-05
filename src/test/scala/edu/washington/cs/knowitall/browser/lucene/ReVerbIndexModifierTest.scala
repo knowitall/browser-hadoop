@@ -39,7 +39,7 @@ class ReVerbIndexModifierTest extends Suite {
 
     var indexWriter = new IndexWriter(ramDir, ReVerbIndexBuilder.indexWriterConfig(ramBufferMB=10))
     
-    val indexBuilder = new IndexBuilder(indexWriter, ReVerbIndexBuilder.inputLineConverter(regroup=false), 100)
+    val indexBuilder = new IndexBuilder(indexWriter, ReVerbIndexBuilder.inputLineConverter(regroup=false, filter = false), 100)
 
     val eachHalfSize = numGroupsToTest/2
     
