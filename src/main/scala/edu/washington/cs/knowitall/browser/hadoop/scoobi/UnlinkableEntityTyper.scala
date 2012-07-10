@@ -42,41 +42,79 @@ object UnlinkableEntityTyper {
   def lineToOptGroup(line: StringREG): Option[REG] = ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(line))._1
   
   def mp1Pair(group: REG): (String, StringREG) = (group.rel.norm, ReVerbExtractionGroup.toTabDelimited(group))
+
+  def typeToString(typ: FreeBaseType): String = "/%s/%s".format(typ.domain, typ.typ) 
   
-  // build a map of entity => count while making only a single pass over the data
-  def reducer1Helper(stringRegIter: Iterator[StringREG], argField: ArgField): Map[String, MutableInt] = {
+  // Converts an REG into entity fbid and types.
+  def loadEntityInfo(argField: ArgField)(stringReg: StringREG): Option[(String, Set[String])] = {
+    val group = lineToOptGroup(stringReg).get
     
-    def getEntity(reg: REG) = argField match {
-      case Arg1() => reg.arg1.entity
-      case Arg2() => reg.arg2.entity
+    argField match {
+      case Arg1() => group.arg1.entity match {
+        case Some(entity) => Some((entity.fbid, group.arg1.types map typeToString))
+        case None => None
+      }
+      case Arg2() => group.arg2.entity match {
+        case Some(entity) => Some((entity.fbid, group.arg2.types map typeToString))
+        case None => None
+      }
     }
+  } 
+  
+  def allPairs(strings: IndexedSeq[String]): Iterable[(String, String)] = {
     
-    def getFbid(fbEnt: FreeBaseEntity) = fbEnt.fbid
+    val length = strings.length
     
-    val entityIter = stringRegIter flatMap lineToOptGroup flatMap getEntity map getFbid
-    
-    // here is where we spend the iterator:
-    val entityCounts = new mutable.HashMap[String, MutableInt]
-    entityIter.foreach { fbid =>
-      entityCounts.getOrElseUpdate(fbid, MutableInt(0)).increment
+    (0 until length).flatMap { i =>
+      (i until length).map { j =>
+        (strings(i), strings(j))  
+      }
     }
-    entityCounts toMap
   }
   
-  def typesForEntity(fbid: String): Iterable[String] = TyperResources.typeLookup(fbid)
-  
-  def relationWeight(entityCounts: Map[String, MutableInt]): Double = -1.0 // NOT IMPLEMENTED YET
-  
-  def reducer1Process(input: (String, Iterable[StringREG]), argField: ArgField): (Iterable[StringREG], Iterable[(String, Int)], Double) = {
+  def calculateRelWeight(entityFrqTypMap: Map[String,(Int, Set[String])]): Double = {
     
-	val entityCounts = reducer1Helper(input._2.iterator, argField)
-	
-	// compute relation weight
-	val weight = relationWeight(entityCounts)
-	
-	// return entity counts (or type counts?) and relation weight.
-	// Hope we can return the Iterable[StringREG] without problems even though we've traversed it once.
-	null
+    
+    // now we perform the summation tom describes 
+    // the first map produces the terms of the sum
+    val terms = allPairs(entityFrqTypMap.keySet.toIndexedSeq) map { case (fbid1, fbid2) =>
+      
+      val types1 = entityFrqTypMap(fbid1)._2
+      val types2 = entityFrqTypMap(fbid2)._2
+      
+      // do types1 and types2 intersect?
+      if (types1.intersect(types2).isEmpty) 0.0 else 1.0
+    }
+    
+    // we sum the terms and then apply tom's denominator 
+    val domainSize = entityFrqTypMap.size.toDouble
+    val denominator = (domainSize * (domainSize - 1))
+    terms.sum / denominator
+  }
+  
+  // produces List of Type, Frequency of that type as well as relation weight, as a double.
+  def reducer1Process(argField: ArgField)(groups: Iterable[StringREG]): (List[(String, Int)], Double) = {
+    
+    val entitiesWithTypes = groups flatMap loadEntityInfo(argField)
+    // group by fbid and make counts
+    
+    // map from fbid to (count, typeStrings)
+    val entitiesGrouped = entitiesWithTypes.groupBy(_._1) map { case (fbid, entityInfos) =>
+      (fbid, (entityInfos.size, entityInfos.head._2))  
+    } toMap
+    
+    // compute relation weight by considering all pairs of entities
+    val relWeight = calculateRelWeight(entitiesGrouped)
+    
+    // now we just need to make a properly counted list of types to pass to the next mapper.
+    // this means expanding entitiesGrouped to type,freq pairs, and then grouping by type 
+    // and summing to get a map from type->frequency of that type.
+    def toTypeFreqPairs(value: (Int, Set[String])): Iterable[(String, Int)] = value._2.map((_, value._1))
+    def typeAccumulator(entry: (String, Iterable[(String, Int)])): (String, Int) = (entry._1, entry._2.map(_._2).sum)
+    
+    val typeFreqMap = entitiesGrouped.values flatMap toTypeFreqPairs groupBy(_._1) map typeAccumulator
+    
+    (typeFreqMap.toList, relWeight)
   }
   
   def main(args: Array[String]): Unit = withHadoopArgs(args) { a =>
@@ -102,33 +140,18 @@ object UnlinkableEntityTyper {
     
     // first, we want to group by relation in order to compute relation weight and entity range. 
     val mapper1Pairs = groups map mp1Pair
-
-    // begin the reduce phase by calling groupByKey
+ 
+    // begin the reduce phase by calling groupByKey 
     val reducer1 = mapper1Pairs.groupByKey
     
     // given each element of reducer1, we compute:
     // (Iterable[REG], entity range, relation weight)
     // type lookup must occur at this point in order to compute the relation weight.
+    val reducer1Output = reducer1.map { case (rel, groups) =>
+      val (typeFreqs, relWeight) = reducer1Process(argField)(groups)
+      (rel, typeFreqs, groups, relWeight).toString
+    }
+    
+    DList.persist(TextOutput.toTextFile(reducer1Output, outputPath + "/"));
   } 
-}
-
-private object TyperResources {
-  
-  import scala.util.Random
-  import edu.washington.cs.knowitall.browser.entity.EntityTyper
-  
-  private val numScratchDisks = 4
-  
-  private def loadTypers: Seq[EntityTyper] = {
-    ScoobiEntityLinker.getScratch(numScratchDisks)(ScoobiEntityLinker.baseIndex).map(base=>new EntityTyper(base))
-  }
-  
-  def typeLookup(fbid: String): Iterable[String] = {
-    val typers = typeLookupLocal.get
-    val randTyper = typers(Random.nextInt(numScratchDisks))
-    val types = randTyper.typeFbid(fbid)
-    types
-  }
-  
-  private val typeLookupLocal = new ThreadLocal[Seq[EntityTyper]]() { override def initialValue = loadTypers }
 }
