@@ -32,8 +32,8 @@ object UnlinkableEntityTyper {
   private val tabSplit = "\t".r
   
   sealed abstract class ArgField
-  case class Arg1 extends ArgField
-  case class Arg2 extends ArgField
+  case class Arg1() extends ArgField
+  case class Arg2() extends ArgField
   
   case class MutableInt(var value: Int) {
     def increment = value += 1
@@ -149,7 +149,7 @@ object UnlinkableEntityTyper {
     // type lookup must occur at this point in order to compute the relation weight.
     val reducer1Output = reducer1.map { case (rel, groups) =>
       val (typeFreqs, relWeight) = reducer1Process(argField)(groups)
-      (rel, typeFreqs, groups, relWeight).toString
+      (rel, typeFreqs.mkString(","), groups.mkString("_GDL_"), relWeight).toString
     }
     
     DList.persist(TextOutput.toTextFile(reducer1Output, outputPath + "/"));
