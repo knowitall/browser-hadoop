@@ -2,6 +2,8 @@ package edu.washington.cs.knowitall.browser.hadoop.scoobi
 
 import com.nicta.scoobi.Scoobi._
 
+import com.nicta.scoobi.lib.Relational
+
 import edu.washington.cs.knowitall.common.Timing._
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 import edu.washington.cs.knowitall.browser.extraction.FreeBaseEntity
@@ -68,6 +70,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
   
   def calculateRelWeight(entityFrqTypMap: Map[String,(Int, Set[String])]): Double = {
     
+    if (entityFrqTypMap.size == 0) return 0
     
     // now we perform the summation tom describes 
     // the first map produces the terms of the sum
@@ -111,7 +114,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
     (typeFreqMap.toList, relWeight)
   }
   
-  def run(): Unit = {
+  def run() = {
 
     var inputPath, outputPath = ""
     var argField: ArgField = Arg1()
@@ -126,7 +129,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
       })
     }
 
-    if (!parser.parse(args)) return
+    if (!parser.parse(args)) System.exit(1)
     
     // serialized ReVerbExtractions
     val lines: DList[StringREG] = TextInput.fromTextFile(inputPath)
@@ -141,11 +144,15 @@ object UnlinkableEntityTyper extends ScoobiApp {
     // given each element of reducer1, we compute:
     // (Iterable[REG], entity range, relation weight)
     // type lookup must occur at this point in order to compute the relation weight.
-    val reducer1Output = reducer1.map { case (rel, groups) =>
+    val reducer1Temp = reducer1.map { case (rel, groups) =>
       val (typeFreqs, relWeight) = reducer1Process(argField)(groups)
-      (rel, typeFreqs.mkString(","), relWeight).toString
+      val key = rel
+      val value = Seq(typeFreqs.mkString(","), relWeight).mkString("\t")
+      (key, value)
     }
     
-    persist(TextOutput.toTextFile(reducer1Output, outputPath + "/"));
+    val reducer1Final = Relational.join(reducer1Temp, mapper1Pairs)
+    
+    persist(toTextFile(reducer1Final, outputPath + "/"));
   } 
 }
