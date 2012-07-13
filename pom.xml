@@ -18,7 +18,6 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
-
   <repositories>
     <repository>
       <id>knowitall</id>
@@ -74,7 +73,7 @@
     <dependency>
       <groupId>com.nicta</groupId>
       <artifactId>scoobi_2.9.1</artifactId>
-      <version>0.3.0</version>
+      <version>0.4.0</version>
     </dependency>
     <dependency>
       <groupId>log4j</groupId>

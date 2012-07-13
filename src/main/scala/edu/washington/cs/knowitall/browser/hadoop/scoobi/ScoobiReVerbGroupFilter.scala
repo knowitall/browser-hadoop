@@ -1,12 +1,6 @@
 package edu.washington.cs.knowitall.browser.hadoop.scoobi
 
 import com.nicta.scoobi.Scoobi._
-import com.nicta.scoobi.DList._
-import com.nicta.scoobi.DList
-import com.nicta.scoobi.io.text.TextInput._
-import com.nicta.scoobi.io.text.TextInput
-import com.nicta.scoobi.io.text.TextOutput._
-import com.nicta.scoobi.io.text.TextOutput
 
 import java.io.File
 import java.io.FileWriter
@@ -27,14 +21,14 @@ import edu.washington.cs.knowitall.browser.lucene.bad.BadQuery
 
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
 
-object ScoobiReVerbGroupFilter {
+object ScoobiReVerbGroupFilter extends ScoobiApp {
   
-  def main(args: Array[String]) = withHadoopArgs(args) { a =>
+  def run() = {
 
-    val (inputPath, outputPath) = (a(0), a(1))
+    val (inputPath, outputPath) = (args(0), args(1))
 
     // serialized groups
-    val groups: DList[String] = TextInput.fromTextFile(inputPath)
+    val groups: DList[String] = fromTextFile(inputPath)
     
     // serialized ExtractionGroup[ReVerbExtraction]
     val filtered: DList[String] = groups.flatMap  { group => 
@@ -43,6 +37,6 @@ object ScoobiReVerbGroupFilter {
       apply
     }
     
-    DList.persist(TextOutput.toTextFile(filtered, outputPath + "/"));
+    persist(TextOutput.toTextFile(filtered, outputPath + "/"));
   }
 }

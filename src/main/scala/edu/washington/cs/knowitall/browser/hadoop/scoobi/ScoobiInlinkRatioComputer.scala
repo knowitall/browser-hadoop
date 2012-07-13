@@ -1,12 +1,6 @@
 package edu.washington.cs.knowitall.browser.hadoop.scoobi
 
 import com.nicta.scoobi.Scoobi._
-import com.nicta.scoobi.DList._
-import com.nicta.scoobi.DList
-import com.nicta.scoobi.io.text.TextInput._
-import com.nicta.scoobi.io.text.TextInput
-import com.nicta.scoobi.io.text.TextOutput._
-import com.nicta.scoobi.io.text.TextOutput
 
 import edu.washington.cs.knowitall.common.Timing._
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
@@ -19,13 +13,13 @@ import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 
 import scopt.OptionParser
 
-object ScoobiInlinkRatioComputer {
+object ScoobiInlinkRatioComputer extends ScoobiApp {
   
   private val NO_ENTITY = "*NO_ENTITY*"
   
   type REG = ExtractionGroup[ReVerbExtraction]
   
-  def main(args: Array[String]): Unit = withHadoopArgs(args) { a =>
+  def run(): Unit = {
 
     var inputPath, outputPath = ""
     var processArg1 = true
@@ -36,7 +30,7 @@ object ScoobiInlinkRatioComputer {
       arg("processArg1", "arg1 for arg1, anything else for arg2", { str => processArg1 = str.equals("arg1") })
     }
 
-    if (!parser.parse(a)) return
+    if (!parser.parse(args)) return
     
     // serialized ReVerbExtractions
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
@@ -69,7 +63,7 @@ object ScoobiInlinkRatioComputer {
       if (!key.equals(NO_ENTITY)) Some(processReducerGroup(processArg1, extrGroups)) else None 
     }
     
-    DList.persist(TextOutput.toTextFile(argsFinished, outputPath + "/"));
+    persist(TextOutput.toTextFile(argsFinished, outputPath + "/"));
   }
   
   /**
@@ -85,25 +79,5 @@ object ScoobiInlinkRatioComputer {
     def ratio = size.toDouble / inlinks.toDouble
     
     "%.04f\t%s\t%s".format(ratio, procEntity.name, procEntity.fbid)
-//    extrGroups.map { extrGroup =>
-//      
-//      val procEntity = if (arg1) extrGroup.arg1Entity.get else extrGroup.arg2Entity.get
-//      val inlinks = procEntity.inlinkRatio
-//      val ratio = size.toDouble / inlinks.toDouble
-//      val arg1Entity = if (arg1) Some(new FreeBaseEntity(procEntity.name, procEntity.fbid, procEntity.score, ratio)) else extrGroup.arg1Entity
-//      val arg2Entity = if (arg2) Some(new FreeBaseEntity(procEntity.name, procEntity.fbid, procEntity.score, ratio)) else extrGroup.arg2Entity 
-//      
-//      new ExtractionGroup(
-//          extrGroup.arg1Norm,
-//          extrGroup.relNorm,
-//          extrGroup.arg2Norm,
-//          arg1Entity,
-//          arg2Entity,
-//          extrGroup.arg1Types,
-//          extrGroup.arg2Types,
-//          extrGroup.instances
-//      )
-//    }.map (ReVerbExtractionGroup.toTabDelimited(_))
-  }
-  
+  } 
 }

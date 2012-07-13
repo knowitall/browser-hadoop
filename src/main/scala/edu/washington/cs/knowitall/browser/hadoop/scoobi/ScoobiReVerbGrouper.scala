@@ -1,12 +1,6 @@
 package edu.washington.cs.knowitall.browser.hadoop.scoobi
 
 import com.nicta.scoobi.Scoobi._
-import com.nicta.scoobi.DList._
-import com.nicta.scoobi.DList
-import com.nicta.scoobi.io.text.TextInput._
-import com.nicta.scoobi.io.text.TextInput
-import com.nicta.scoobi.io.text.TextOutput._
-import com.nicta.scoobi.io.text.TextOutput
 
 import java.io.File
 import java.io.FileWriter
@@ -38,7 +32,6 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  */
 class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
  
-  
   private var extrsProcessed = 0
   private var groupsProcessed = 0
   
@@ -103,7 +96,7 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 
 }
 
-object ScoobiReVerbGrouper {
+object ScoobiReVerbGrouper extends ScoobiApp {
 
   val max_group_size = 40000
   
@@ -134,15 +127,15 @@ object ScoobiReVerbGrouper {
 
   }
 
-  def main(args: Array[String]) = withHadoopArgs(args) { a =>
+  def run() = {
 
-    val (inputPath, outputPath, corpus) = (a(0), a(1), a(2))
+    val (inputPath, outputPath, corpus) = (args(0), args(1), args(2))
 
     // serialized ReVerbExtractions
-    val extrs: DList[String] = TextInput.fromTextFile(inputPath)
+    val extrs: DList[String] = fromTextFile(inputPath)
 
     val groups = groupExtractions(extrs, corpus)
 
-    DList.persist(TextOutput.toTextFile(groups, outputPath + "/"));
+    persist(TextOutput.toTextFile(groups, outputPath + "/"));
   }
 }

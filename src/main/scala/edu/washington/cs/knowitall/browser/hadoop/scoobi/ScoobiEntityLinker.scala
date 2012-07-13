@@ -1,12 +1,12 @@
 package edu.washington.cs.knowitall.browser.hadoop.scoobi
 
 import com.nicta.scoobi.Scoobi._
-import com.nicta.scoobi.DList._
-import com.nicta.scoobi.DList
-import com.nicta.scoobi.io.text.TextInput._
-import com.nicta.scoobi.io.text.TextInput
-import com.nicta.scoobi.io.text.TextOutput._
-import com.nicta.scoobi.io.text.TextOutput
+//import com.nicta.scoobi.DList._
+//import com.nicta.scoobi.DList
+//import com.nicta.scoobi.io.text.TextInput._
+//import com.nicta.scoobi.io.text.TextInput
+//import com.nicta.scoobi.io.text.TextOutput._
+//import com.nicta.scoobi.io.text.TextOutput
 
 import java.net.InetSocketAddress
 
@@ -128,7 +128,7 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
   }
 }
 
-object ScoobiEntityLinker {
+object ScoobiEntityLinker extends ScoobiApp {
 
   val cachePort = 11211
   
@@ -225,7 +225,7 @@ object ScoobiEntityLinker {
     }
   }
 
-  def main(args: Array[String]) = withHadoopArgs(args) { remainingArgs =>
+  def run() = {
 
     var minFreq = 0
     var maxFreq = scala.Int.MaxValue
@@ -242,12 +242,12 @@ object ScoobiEntityLinker {
       opt("skipLinking", "don't ever actually try to link - (use for frequency filtering)", { skipLinking = true })
     }
 
-    if (parser.parse(remainingArgs)) {
+    if (parser.parse(args)) {
 
       val lines: DList[String] = TextInput.fromTextFile(inputPath)
       val linkedGroups: DList[String] = linkGroups(lines, minFreq, maxFreq, reportInterval, skipLinking)
 
-      DList.persist(TextOutput.toTextFile(linkedGroups, outputPath + "/"));
+      persist(TextOutput.toTextFile(linkedGroups, outputPath + "/"));
     }
   }
 }

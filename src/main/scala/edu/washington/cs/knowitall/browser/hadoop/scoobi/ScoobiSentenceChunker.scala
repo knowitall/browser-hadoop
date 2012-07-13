@@ -1,12 +1,6 @@
 package edu.washington.cs.knowitall.browser.hadoop.scoobi
 
 import com.nicta.scoobi.Scoobi._
-import com.nicta.scoobi.DList._
-import com.nicta.scoobi.DList
-import com.nicta.scoobi.io.text.TextInput._
-import com.nicta.scoobi.io.text.TextInput
-import com.nicta.scoobi.io.text.TextOutput._
-import com.nicta.scoobi.io.text.TextOutput
 
 import edu.washington.cs.knowitall.common.Timing._
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
@@ -23,12 +17,12 @@ import edu.washington.cs.knowitall.tool.chunk.ChunkedToken
 
 import scopt.OptionParser
 
-object ScoobiSentenceChunker {
+object ScoobiSentenceChunker extends ScoobiApp {
   
   lazy val chunker = new OpenNlpChunker
   
   
-  def main(args: Array[String]): Unit = withHadoopArgs(args) { a =>
+  def run(): Unit = {
 
     var inputPath, outputPath = ""
 
@@ -37,7 +31,7 @@ object ScoobiSentenceChunker {
       arg("outputPath", "hdfs output path, chunked sentences", { str => outputPath = str })
     }
 
-    if (!parser.parse(a)) return
+    if (!parser.parse(args)) return
     
     // serialized ReVerbExtractions
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
@@ -63,6 +57,6 @@ object ScoobiSentenceChunker {
       
     }
     
-    DList.persist(TextOutput.toTextFile(output, outputPath + "/"));
+    persist(TextOutput.toTextFile(output, outputPath + "/"));
   } 
 }

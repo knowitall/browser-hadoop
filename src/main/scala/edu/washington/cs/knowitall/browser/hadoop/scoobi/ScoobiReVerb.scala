@@ -1,12 +1,6 @@
 package edu.washington.cs.knowitall.browser.hadoop.scoobi
 
 import com.nicta.scoobi.Scoobi._
-import com.nicta.scoobi.DList._
-import com.nicta.scoobi.DList
-import com.nicta.scoobi.io.text.TextInput._
-import com.nicta.scoobi.io.text.TextInput
-import com.nicta.scoobi.io.text.TextOutput._
-import com.nicta.scoobi.io.text.TextOutput
 
 import edu.washington.cs.knowitall.common.Timing
 import edu.washington.cs.knowitall.collection.immutable.Interval
@@ -31,14 +25,14 @@ import scopt.OptionParser
 
 import scala.collection.JavaConversions._
 
-object ScoobiReVerb {
+object ScoobiReVerb extends ScoobiApp {
 
   private val tabSplit = "\t".r
   private val wsSplit = "\\s".r
   
   lazy val extractor = new ReVerbExtractor
 
-  def main(args: Array[String]): Unit = withHadoopArgs(args) { a =>
+  def run(): Unit = {
 
     var inputPath, outputPath = ""
 
@@ -47,7 +41,7 @@ object ScoobiReVerb {
       arg("outputPath", "hdfs output path, chunked sentences", { str => outputPath = str })
     }
 
-    if (!parser.parse(a)) return
+    if (!parser.parse(args)) return
 
     // serialized ReVerbExtractions
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
@@ -114,6 +108,6 @@ object ScoobiReVerb {
       }
     }
     
-    DList.persist(TextOutput.toTextFile(finalExtractions, outputPath + "/"));
+    persist(TextOutput.toTextFile(finalExtractions, outputPath + "/"));
   }
 }

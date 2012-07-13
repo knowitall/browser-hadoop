@@ -1,12 +1,6 @@
 package edu.washington.cs.knowitall.browser.hadoop.scoobi
 
 import com.nicta.scoobi.Scoobi._
-import com.nicta.scoobi.DList._
-import com.nicta.scoobi.DList
-import com.nicta.scoobi.io.text.TextInput._
-import com.nicta.scoobi.io.text.TextInput
-import com.nicta.scoobi.io.text.TextOutput._
-import com.nicta.scoobi.io.text.TextOutput
 
 import edu.washington.cs.knowitall.common.Timing._
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
@@ -24,7 +18,7 @@ import scopt.OptionParser
 
 import scala.collection.mutable
 
-object UnlinkableEntityTyper {
+object UnlinkableEntityTyper extends ScoobiApp {
   
   type StringREG = String
   type REG = ExtractionGroup[ReVerbExtraction]
@@ -117,7 +111,7 @@ object UnlinkableEntityTyper {
     (typeFreqMap.toList, relWeight)
   }
   
-  def main(args: Array[String]): Unit = withHadoopArgs(args) { a =>
+  def run(): Unit = {
 
     var inputPath, outputPath = ""
     var argField: ArgField = Arg1()
@@ -132,12 +126,12 @@ object UnlinkableEntityTyper {
       })
     }
 
-    if (!parser.parse(a)) return
+    if (!parser.parse(args)) return
     
     // serialized ReVerbExtractions
     val lines: DList[StringREG] = TextInput.fromTextFile(inputPath)
     val groups = lines flatMap lineToOptGroup
-    
+
     // first, we want to group by relation in order to compute relation weight and entity range. 
     val mapper1Pairs = groups map mp1Pair
  
@@ -149,9 +143,9 @@ object UnlinkableEntityTyper {
     // type lookup must occur at this point in order to compute the relation weight.
     val reducer1Output = reducer1.map { case (rel, groups) =>
       val (typeFreqs, relWeight) = reducer1Process(argField)(groups)
-      (rel, typeFreqs.mkString(","), groups.mkString("_GDL_"), relWeight).toString
+      (rel, typeFreqs.mkString(","), relWeight).toString
     }
     
-    DList.persist(TextOutput.toTextFile(reducer1Output, outputPath + "/"));
+    persist(TextOutput.toTextFile(reducer1Output, outputPath + "/"));
   } 
 }

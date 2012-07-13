@@ -3,12 +3,6 @@ package edu.washington.cs.knowitall.browser.hadoop.scoobi
 import scala.collection.JavaConversions._
 
 import com.nicta.scoobi.Scoobi._
-import com.nicta.scoobi.DList._
-import com.nicta.scoobi.DList
-import com.nicta.scoobi.io.text.TextInput._
-import com.nicta.scoobi.io.text.TextInput
-import com.nicta.scoobi.io.text.TextOutput._
-import com.nicta.scoobi.io.text.TextOutput
 
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
@@ -24,7 +18,7 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedArgumentExtraction
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedBinaryExtraction
 import edu.washington.cs.knowitall.nlp.ChunkedSentence
 
-object ScoobiGroupReGrouper {
+object ScoobiGroupReGrouper extends ScoobiApp {
   
   val confLocal = new ThreadLocal[ReVerbOpenNlpConfFunction]() {
     override def initialValue = new ReVerbOpenNlpConfFunction()
@@ -34,12 +28,12 @@ object ScoobiGroupReGrouper {
   
   private var groupsProcessed = 0
 
-  def main(args: Array[String]) = withHadoopArgs(args) { a =>
+  def run() = {
 
-    val (inputPath, outputPath) = (a(0), a(1))
+    val (inputPath, outputPath) = (args(0), args(1))
 
     // serialized ReVerbExtractions
-    val groups: DList[String] = TextInput.fromTextFile(inputPath)
+    val groups: DList[String] = fromTextFile(inputPath)
 
     val confedGroups = groups.flatMap { line => groupMapProcessor(line) }
     
@@ -47,7 +41,7 @@ object ScoobiGroupReGrouper {
     
     val combinedGroups = reGroups.map(keyValues => ReVerbExtractionGroup.toTabDelimited(combineGroups(keyValues._1, keyValues._2)))
 
-    DList.persist(TextOutput.toTextFile(combinedGroups, outputPath + "/"));
+    persist(TextOutput.toTextFile(combinedGroups, outputPath + "/"));
   }
 
   def combineGroups(key: String, groups: Iterable[String]): ExtractionGroup[ReVerbExtraction] = {
