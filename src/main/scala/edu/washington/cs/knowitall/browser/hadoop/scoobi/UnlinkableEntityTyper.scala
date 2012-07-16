@@ -20,6 +20,8 @@ import scopt.OptionParser
 
 import scala.collection.mutable
 
+import scala.io.Source
+
 import UnlinkableEntityTyper.REG
 // Types are represented as Ints in some places to save space. An file defines an enumeration mapping them back to strings.
 
@@ -45,18 +47,18 @@ sealed abstract class ArgField {
 
 case class Arg1() extends ArgField { 
   override def getArgNorm(reg: REG) = reg.arg1.norm 
-  override def getTypeStrings(reg: REG) = reg.arg1.types map fbTypeToString
+  override def getTypeStrings(reg: REG) = reg.arg1.types map fbTypeToString filter TypeEnumUtils.typeFilter
   override def attachTypes(reg: REG, typeInts: Seq[Int]) = reg.copy(arg1 = reg.arg1.copy(types = typeInts flatMap intToFbType toSet))
-  override def loadEntityInfo(group: REG): Option[EntityInfo] = group.arg1.entity map { e =>
-    EntityInfo(e.fbid, group.arg1.types map fbTypeToString map typeToInt)
+  override def loadEntityInfo(reg: REG): Option[EntityInfo] = reg.arg1.entity map { e =>
+    EntityInfo(e.fbid, getTypeStrings(reg) map typeToInt)
   }
 }
 case class Arg2() extends ArgField {
   override def getArgNorm(reg: REG) = reg.arg2.norm
-  override def getTypeStrings(reg: REG) = reg.arg2.types map fbTypeToString
+  override def getTypeStrings(reg: REG) = reg.arg2.types map fbTypeToString filter TypeEnumUtils.typeFilter
   override def attachTypes(reg: REG, typeInts: Seq[Int]) = reg.copy(arg2 = reg.arg2.copy(types = typeInts flatMap intToFbType toSet))
-  override def loadEntityInfo(group: REG): Option[EntityInfo] = group.arg2.entity map { e =>
-    EntityInfo(e.fbid, group.arg2.types map fbTypeToString map typeToInt)
+  override def loadEntityInfo(reg: REG): Option[EntityInfo] = reg.arg2.entity map { e =>
+    EntityInfo(e.fbid, getTypeStrings(reg) map typeToInt)
   }
 }
 
@@ -91,16 +93,18 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   import UnlinkableEntityTyper.{ REG, allPairs, tabSplit }
   import TypeEnumUtils.typeStringMap
   import scala.util.Random
+  
+  import edu.washington.cs.knowitall.browser.lucene.ExtractionGroupFetcher.entityStoplist
 
   val debugChecks = true
   
   val maxSimilarEntities = 15
   
-  val minTypesShared = 7
+  val minTypesShared = 0
   
-  val maxPredictedTypes = 3
+  val maxPredictedTypes = 20
   
-  val minRelWeight = 0.1
+  val minRelWeight = 0.05
   
   val maxEntitiesReadPerRel = 50000
   val maxEntitiesWritePerRel = 500
@@ -115,11 +119,14 @@ class UnlinkableEntityTyper(val argField: ArgField) {
       relRegs.forall(_.rel.norm.equals(headRelNorm))
     }
    
-    val readEntities = relRegs flatMap argField.loadEntityInfo take (maxEntitiesReadPerRel)
+    def entityBlacklistFilter(entity: EntityInfo): Boolean = !entityStoplist.contains(entity.fbid)
+    def typelessEntityFilter(entity: EntityInfo): Boolean = !entity.types.isEmpty
+    
+    val readEntities = relRegs flatMap argField.loadEntityInfo filter entityBlacklistFilter filter typelessEntityFilter take (maxEntitiesReadPerRel)
     val writeEntities = Random.shuffle(readEntities).take(maxEntitiesWritePerRel)
     
     val relWeight = calculateRelWeight(writeEntities.toIndexedSeq)
-    if (relWeight < minRelWeight) None
+    if (relWeight < minRelWeight || writeEntities.isEmpty) None
     else Some(RelInfo(headRelNorm, relWeight, writeEntities.toSet))
   }
 
@@ -168,14 +175,21 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   }
   
   // returns type enum int, #shared. Seq.empty if no prediction.
-  def predictTypes(topEntities: Seq[EntityInfo]): Seq[Int] = {
+  def predictTypes(topEntities: Seq[EntityInfo]): Seq[(Int, Double)] = {
     
     // flatMap the entities to types
     def toTypes(entity: EntityInfo) = entity.types.iterator
     val types = topEntities flatMap toTypes
     // type, #shared
-    val typesCounted = types.groupBy(identity).map { case (typeInt, typeGroup) => (typeInt, typeGroup.size) }
-    typesCounted.filter(_._2 >= minTypesShared).toSeq.sortBy(-_._2).map(_._1).take(maxPredictedTypes)
+    val typesCounted = types.groupBy(identity).map { case (typeInt, typeGroup) => 
+      val typeInfoOption = TypeEnumUtils.typeEnumMap.get(typeInt)
+      val shareScore = typeInfoOption match {
+        case Some(typeInfo) => typeGroup.size.toDouble / math.log(typeInfo.instances.toDouble)
+        case None => 1
+      }
+      (typeInt, typeGroup.size.toDouble / shareScore) 
+    }
+    typesCounted.filter(_._2 >= minTypesShared).toSeq.sortBy(-_._2).take(maxPredictedTypes)
   }
   
   def tryAttachTypes(types: Seq[Int])(reg: REG): REG = {
@@ -239,12 +253,17 @@ object UnlinkableEntityTyper extends ScoobiApp {
     val argRelInfoPairs: DList[(String, String)] = {
       relInfoRegGrouped.flatMap { case (relString, (relInfoSingleton, relRegStrings)) => 
        
-      	val relInfoString = relInfoSingleton.head
+      	val relInfoStringOpt = relInfoSingleton.headOption
       	val relRegs = relRegStrings flatMap typer.getOptReg
       	// in-memory group by argument
-      	def argRelRegs: Set[String] = relRegs.map(argField.getArgNorm _).toSet
+      	def argStrings: Set[String] = relRegs.map(argField.getArgNorm _).toSet
       	// attach relInfo to every argRelReg 
-      	argRelRegs.map { argString => (argString, relInfoString) }
+      	relInfoStringOpt match {
+      	  case Some(relInfoString) => {
+      	    argStrings.toSeq.map(argString => (argString, relInfoString))
+      	  }
+      	  case None => Seq.empty
+      	}
       }
     }
     
@@ -254,18 +273,42 @@ object UnlinkableEntityTyper extends ScoobiApp {
     // (argument, (Iterable[RelInfos for arg], Iterable[REG w/ arg]))
     val argRelInfosArgRelRegsGrouped: DList[(String, (Iterable[String], Iterable[String]))] = Relational.coGroup(argRelInfoPairs, argRegPairs)
 
+    def getNotableRels(relInfos: Seq[RelInfo]): Seq[RelInfo] = {
+      val descending = relInfos.sortBy(-_.weight)
+      val best = descending.take(4)
+      val worst = descending.takeRight(4)
+      val combined = (best ++ worst)
+      val deduped = combined.toSet.iterator.toSeq
+      val sorted = deduped.sortBy(-_.weight)
+      sorted
+    }
+    
     // (REG)
-    val typedRegs = argRelInfosArgRelRegsGrouped flatMap { case (argString, (relInfoStrings, argRelRegStcrings)) =>
-      val topEntitiesForArg = typer.getTopEntitiesForArg(relInfoStrings map RelInfo.fromString)
+    val typedRegs = argRelInfosArgRelRegsGrouped flatMap { case (argString, (relInfoStrings, argRelRegStrings)) =>
+      val relInfos = relInfoStrings map RelInfo.fromString toSeq // debug: remove toSeq
+      val notableRels = getNotableRels(relInfos) map(ri => "%s:%.04f".format(ri.relString, ri.weight)) // debug, deleteme
+      val topEntitiesForArg = typer.getTopEntitiesForArg(relInfos)
       val predictedTypes = typer.predictTypes(topEntitiesForArg)
       // now *try* to attach these predicted types to REGs (don't if REG is linked already)
-      val argRelRegs = argRelRegStcrings flatMap typer.getOptReg
+      val argRelRegs = argRelRegStrings flatMap typer.getOptReg
       // try to assign types to every REG in argRelRegs
-      argRelRegs map typer.tryAttachTypes(predictedTypes)
+      //argRelRegs map typer.tryAttachTypes(predictedTypes)
+      Seq((argString, predictedTypes, notableRels, topEntitiesForArg.take(5).map(_.fbid)))
     }
     
     // (REG String)
-    val finalResult: DList[String] = typedRegs map ReVerbExtractionGroup.toTabDelimited
+    //val finalResult: DList[String] = typedRegs map ReVerbExtractionGroup.toTabDelimited
+    
+    // this entire method can be thrown away when done debugging
+    val finalResult: DList[String] = typedRegs map { case (argString, predictedTypes, notableRels, topEntitiesForArg) =>
+      val types = predictedTypes.flatMap { case (typeInt, numShared) =>
+        TypeEnumUtils.typeEnumMap.get(typeInt).map(typeInfo => (typeInfo.typeString, numShared))
+      }
+      val typesNumShared = types.map({ case (ts, num) => "%s@%.02f".format(ts, num) }).mkString(",")
+      val rels = notableRels.mkString(",")
+      val entities = topEntitiesForArg.mkString(",")
+      Seq(argString, typesNumShared, rels, entities).mkString(" | ")
+    }
     
     persist(toTextFile(finalResult, outputPath + "/"))
   }
@@ -292,10 +335,18 @@ object TypeEnumUtils {
   case class TypeInfo(val typeString: String, val enum: Int, val instances: Int)
   
   val typeEnumFile = "/fbTypeEnum.txt"
-  def getEnumSource = io.Source.fromInputStream(UnlinkableEntityTyper.getClass.getResource(typeEnumFile).openStream)
+  val typeBlacklistFile = "/type_blacklist.txt"
+  
+  def getResourceSource(resourceName: String): Source = Source.fromInputStream(UnlinkableEntityTyper.getClass.getResource(resourceName).openStream)
+  def getEnumSource = getResourceSource(typeEnumFile)
   // type, num, count
   def parseEnumLine(line: String): TypeInfo = { val split = tabSplit.split(line); TypeInfo(split(1), split(0).toInt, split(2).toInt) }
   
   lazy val typeStringMap = using(getEnumSource) { _.getLines map parseEnumLine map(ti => (ti.typeString, ti)) toMap }
   lazy val typeEnumMap = using(getEnumSource) { _.getLines map parseEnumLine map(ti => (ti.enum, ti)) toMap }
+  lazy val typeBlacklist = using(getResourceSource(typeBlacklistFile)) { _.getLines toSet }
+  
+  def typeFilter(typeString: String): Boolean = {
+    !typeString.startsWith("/base/") && !typeBlacklist.contains(typeString)
+  }
 }
