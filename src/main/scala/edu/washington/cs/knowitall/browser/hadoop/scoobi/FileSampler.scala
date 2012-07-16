@@ -39,6 +39,11 @@ object FileSampler extends ScoobiApp {
     
     if (!parser.parse(args)) return
 
+    println("Parsed args: %s".format(args.mkString(" ")))
+    println("inputPath=%s".format(inputPath))
+    println("outputPath=%s".format(outputPath))
+    println("sampleFrac=%s".format(sampleFrac.toString))
+    
     // serialized ReVerbExtractions
     val input: DList[String] = fromTextFile(inputPath)
     

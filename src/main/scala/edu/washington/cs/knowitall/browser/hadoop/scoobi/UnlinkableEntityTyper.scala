@@ -73,15 +73,16 @@ case object EntityInfo {
   }
 }
 
-case class RelInfo(val entities: Set[EntityInfo], val weight: Double) {
-  override def toString = "%.02f:%s".format(weight, entities.mkString(":"))
+case class RelInfo(val relString: String, val weight: Double, val entities: Set[EntityInfo]) {
+  override def toString = "%s:%.02f:%s".format(relString, weight, entities.mkString(":"))
 }
 case object RelInfo {
   def fromString(str: String) = {
     val split = str.split(":")
-    val weight = split(0).toDouble
-    val entities = split.drop(1) map EntityInfo.fromString
-    RelInfo(entities.toSet, weight)
+    val relString = split(0)
+    val weight = split(1).toDouble
+    val entities = split.drop(2) map EntityInfo.fromString
+    RelInfo(relString, weight, entities.toSet)
   }
 }
 
@@ -91,6 +92,8 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   import TypeEnumUtils.typeStringMap
   import scala.util.Random
 
+  val debugChecks = true
+  
   val maxSimilarEntities = 15
   
   val minTypesShared = 7
@@ -106,12 +109,18 @@ class UnlinkableEntityTyper(val argField: ArgField) {
 
   def getOptRelInfo(relRegs: Iterable[REG]): Option[RelInfo] = {
 
+    val headRelNorm = relRegs.head.rel.norm
+    
+    if (debugChecks) require {
+      relRegs.forall(_.rel.norm.equals(headRelNorm))
+    }
+   
     val readEntities = relRegs flatMap argField.loadEntityInfo take (maxEntitiesReadPerRel)
     val writeEntities = Random.shuffle(readEntities).take(maxEntitiesWritePerRel)
     
     val relWeight = calculateRelWeight(writeEntities.toIndexedSeq)
     if (relWeight < minRelWeight) None
-    else Some(RelInfo(writeEntities.toSet, relWeight))
+    else Some(RelInfo(headRelNorm, relWeight, writeEntities.toSet))
   }
 
   // returns rel string, group string
