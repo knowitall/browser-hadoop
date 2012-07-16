@@ -20,9 +20,50 @@ import scopt.OptionParser
 
 import scala.collection.mutable
 
+import UnlinkableEntityTyper.REG
+// Types are represented as Ints in some places to save space. An file defines an enumeration mapping them back to strings.
+
+sealed abstract class ArgField { 
+  def getArgNorm(reg: REG): String 
+  def getTypeStrings(reg: REG): Set[String]
+  def attachTypes(reg: REG, typeInts: Seq[Int]): REG
+  def loadEntityInfo(group: REG): Option[EntityInfo]
+  protected def fbTypeToString(fbType: FreeBaseType): String = "/%s/%s".format(fbType.domain, fbType.typ)
+  // Silently returns none
+  protected def intToFbType(typeInt: Int): Option[FreeBaseType] = {
+    val typeInfo = TypeEnumUtils.typeEnumMap.get(typeInt).getOrElse { return None }
+    FreeBaseType.parse(typeInfo.typeString)
+  }
+  // reports return of None to stderr
+  protected def intToFbTypeVerbose(typeInt: Int): Option[FreeBaseType] = {
+    val fbTypeOpt = intToFbType(typeInt)
+    if (!fbTypeOpt.isDefined) System.err.println("Couldn't parse type int: %d".format(typeInt))
+    fbTypeOpt
+  }
+  protected def typeToInt(typ: String): Int = TypeEnumUtils.typeStringMap(typ).enum  
+}
+
+case class Arg1() extends ArgField { 
+  override def getArgNorm(reg: REG) = reg.arg1.norm 
+  override def getTypeStrings(reg: REG) = reg.arg1.types map fbTypeToString
+  override def attachTypes(reg: REG, typeInts: Seq[Int]) = reg.copy(arg1 = reg.arg1.copy(types = typeInts flatMap intToFbType toSet))
+  override def loadEntityInfo(group: REG): Option[EntityInfo] = group.arg1.entity map { e =>
+    EntityInfo(e.fbid, group.arg1.types map fbTypeToString map typeToInt)
+  }
+}
+case class Arg2() extends ArgField {
+  override def getArgNorm(reg: REG) = reg.arg2.norm
+  override def getTypeStrings(reg: REG) = reg.arg2.types map fbTypeToString
+  override def attachTypes(reg: REG, typeInts: Seq[Int]) = reg.copy(arg2 = reg.arg2.copy(types = typeInts flatMap intToFbType toSet))
+  override def loadEntityInfo(group: REG): Option[EntityInfo] = group.arg2.entity map { e =>
+    EntityInfo(e.fbid, group.arg2.types map fbTypeToString map typeToInt)
+  }
+}
+
 case class EntityInfo(val fbid: String, val types: Set[Int]) {
   override def toString = "%s,%s".format(fbid, types.mkString(","))
 }
+
 case object EntityInfo {
   def fromString(str: String) = {
     val split = str.split(",")
@@ -44,46 +85,43 @@ case object RelInfo {
   }
 }
 
-class UnlinkableEntityTyper(val argField: UnlinkableEntityTyper.ArgField) {
+class UnlinkableEntityTyper(val argField: ArgField) {
 
-  import UnlinkableEntityTyper.{ ArgField, Arg1, Arg2, REG, allPairs, tabSplit }
-  import TypeEnumUtils.typeToInt
+  import UnlinkableEntityTyper.{ REG, allPairs, tabSplit }
+  import TypeEnumUtils.typeStringMap
+  import scala.util.Random
 
-  val maxEntitiesPerRel = 50000
+  val maxSimilarEntities = 15
+  
+  val minTypesShared = 7
+  
+  val maxPredictedTypes = 3
+  
+  val minRelWeight = 0.1
+  
+  val maxEntitiesReadPerRel = 50000
+  val maxEntitiesWritePerRel = 500
 
-  def typeToString(typ: FreeBaseType): String = "/%s/%s".format(typ.domain, typ.typ)
+  def getOptReg(regString: String): Option[REG] = ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(regString))._1
 
-  def lineToOptGroup(line: String): Option[REG] = ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(line))._1
+  def getOptRelInfo(relRegs: Iterable[REG]): Option[RelInfo] = {
 
-  // Converts an REG into entity fbid and types.
-  def loadEntityInfo(group: REG): Option[EntityInfo] = argField match {
-    case Arg1() => group.arg1.entity match {
-      case Some(entity) => Some(EntityInfo(entity.fbid, group.arg1.types map typeToString map typeToInt))
-      case None => None
-    }
-    case Arg2() => group.arg2.entity match {
-      case Some(entity) => Some(EntityInfo(entity.fbid, group.arg2.types map typeToString map typeToInt))
-      case None => None
-    }
-  }
-
-  def getRelInfo(relGroupStrings: Iterable[String]): RelInfo = {
-
-    val entities = relGroupStrings.iterator flatMap lineToOptGroup flatMap loadEntityInfo take (maxEntitiesPerRel) toSet
-
-    val relWeight = calculateRelWeight(entities.toIndexedSeq)
-
-    RelInfo(entities, relWeight)
+    val readEntities = relRegs flatMap argField.loadEntityInfo take (maxEntitiesReadPerRel)
+    val writeEntities = Random.shuffle(readEntities).take(maxEntitiesWritePerRel)
+    
+    val relWeight = calculateRelWeight(writeEntities.toIndexedSeq)
+    if (relWeight < minRelWeight) None
+    else Some(RelInfo(writeEntities.toSet, relWeight))
   }
 
   // returns rel string, group string
-  def mapper1KeyValue(group: REG): (String, String) = (group.rel.norm, ReVerbExtractionGroup.toTabDelimited(group))
+  def relationRegKV(group: REG): (String, String) = (group.rel.norm, ReVerbExtractionGroup.toTabDelimited(group))
+  
+    // returns rel string, group string
+  def argumentRegKV(group: REG): (String, String) = (argField.getArgNorm(group), ReVerbExtractionGroup.toTabDelimited(group))
   
   // returns arg string, relinfo, group string
-  def mapper2KeyValue(relInfo: RelInfo)(group: REG): (String, (String, String)) = argField match {
-    case Arg1() => (group.arg1.norm, (relInfo.toString, ReVerbExtractionGroup.toTabDelimited(group)))
-    case Arg2() => (group.arg2.norm, (relInfo.toString, ReVerbExtractionGroup.toTabDelimited(group)))
-  }
+  def argRelInfo(relInfo: RelInfo)(group: REG): (String, String) = (argField.getArgNorm(group), relInfo.toString)
 
   // Input elements are (fbid, count, types)
   def calculateRelWeight(entities: IndexedSeq[EntityInfo]): Double = {
@@ -104,15 +142,42 @@ class UnlinkableEntityTyper(val argField: UnlinkableEntityTyper.ArgField) {
     val denominator = (domainSize * (domainSize - 1.0)) / 2.0
     terms.sum / denominator
   }
+  
+  // Performs the "find similar entities" step described in the paper
+  def getTopEntitiesForArg(relInfos: Iterable[RelInfo]): Seq[EntityInfo] = {
+    // flatten entities and their weights
+    def expWeight(weight: Double) = math.pow(10, 4*weight) // this is what tom found to work as described in the paper.
+    
+    val entitiesWeighted = relInfos.flatMap { relInfo => 
+      relInfo.entities.map(ent => (ent, expWeight(relInfo.weight)))
+    }
+    // now group by entity and sum the weight
+    val topEntities = entitiesWeighted.groupBy(_._1).iterator.map { case (entity, entGroup) => 
+      (entity, entGroup.map(_._2).sum)  
+    }.toSeq.sortBy(-_._2).take(maxSimilarEntities)
+    topEntities.map(_._1)
+  }
+  
+  // returns type enum int, #shared. Seq.empty if no prediction.
+  def predictTypes(topEntities: Seq[EntityInfo]): Seq[Int] = {
+    
+    // flatMap the entities to types
+    def toTypes(entity: EntityInfo) = entity.types.iterator
+    val types = topEntities flatMap toTypes
+    // type, #shared
+    val typesCounted = types.groupBy(identity).map { case (typeInt, typeGroup) => (typeInt, typeGroup.size) }
+    typesCounted.filter(_._2 >= minTypesShared).toSeq.sortBy(-_._2).map(_._1).take(maxPredictedTypes)
+  }
+  
+  def tryAttachTypes(types: Seq[Int])(reg: REG): REG = {
+    if (argField.getTypeStrings(reg).isEmpty) argField.attachTypes(reg, types) else reg
+  }
 }
+
 
 object UnlinkableEntityTyper extends ScoobiApp {
 
   val tabSplit = "\t".r
-  
-  sealed abstract class ArgField
-  case class Arg1() extends ArgField
-  case class Arg2() extends ArgField
 
   type REG = ExtractionGroup[ReVerbExtraction]
 
@@ -139,30 +204,61 @@ object UnlinkableEntityTyper extends ScoobiApp {
 
     // serialized ReVerbExtractions
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
-    val groups = lines flatMap typer.lineToOptGroup
-
-    // first, we want to group by relation in order to compute relation weight and entity range. 
-    val mapper1Pairs = groups map typer.mapper1KeyValue
-
-    // begin the reduce phase by calling groupByKey 
-    val groupedByRelation = mapper1Pairs.groupByKey
-
-    // map groupedByRelation to a list of (rel string, rel entityInfos, rel weight)
-    val relInfoPairs = groupedByRelation map { case (relString, groupsWithRel) => (relString, typer.getRelInfo(groupsWithRel).toString) }
-
-    // this is an entire map-reduce job, as far as I can tell:
-    val relInfosWithGroups = Relational.coGroup(relInfoPairs, mapper1Pairs)
     
-    // now we want to re-group by argField, keeping relInfoPairs with each new group.
-    // DList[Arg String, (RelInfoString, RelGroupStrings)]
-    val mapper3Pairs = relInfosWithGroups.flatMap { case (relString, (relInfoString, relGroups)) =>
-      val relInfo = RelInfo.fromString(relInfoString.head)
-      relGroups flatMap typer.lineToOptGroup map typer.mapper2KeyValue(relInfo)
+    // (REG) elements
+    val regs = lines flatMap typer.getOptReg
+
+    // (relation, REG w/ relation) pairs
+    // first, we want to group by relation in order to compute relation weight and entity range. 
+    val relRegPairs = regs map typer.relationRegKV
+
+    // (relation, Iterable[REG w/ relation]), e.g. the above, grouped by the first element.
+    // begin the reduce phase by calling groupByKey 
+    val relRegGrouped = relRegPairs.groupByKey
+
+    // (relation, RelInfo) pairs
+    val relInfoPairs = relRegGrouped flatMap { case (relString, relRegStrings) => 
+      val relRegs = relRegStrings flatMap typer.getOptReg
+      typer.getOptRelInfo(relRegs).map(relInfo => (relString, relInfo.toString))
+    }
+
+    // (relation, Singleton[RelInfo], Groups of REG w/ relation) 
+    // groups of relInfoPairs in the result are always singleton iterables, since there is only one relInfo per rel.
+    val relInfoRegGrouped = Relational.coGroup(relInfoPairs, relRegPairs)
+    
+    // (argument, RelInfo) pairs
+    val argRelInfoPairs: DList[(String, String)] = {
+      relInfoRegGrouped.flatMap { case (relString, (relInfoSingleton, relRegStrings)) => 
+       
+      	val relInfoString = relInfoSingleton.head
+      	val relRegs = relRegStrings flatMap typer.getOptReg
+      	// in-memory group by argument
+      	def argRelRegs: Set[String] = relRegs.map(argField.getArgNorm _).toSet
+      	// attach relInfo to every argRelReg 
+      	argRelRegs.map { argString => (argString, relInfoString) }
+      }
     }
     
-    val groupedByArg = mapper3Pairs.groupByKey
+    // (argument, REG w/ argument) pairs
+    val argRegPairs = regs map typer.argumentRegKV
     
-    persist(toTextFile(groupedByArg, outputPath + "/"))
+    // (argument, (Iterable[RelInfos for arg], Iterable[REG w/ arg]))
+    val argRelInfosArgRelRegsGrouped: DList[(String, (Iterable[String], Iterable[String]))] = Relational.coGroup(argRelInfoPairs, argRegPairs)
+
+    // (REG)
+    val typedRegs = argRelInfosArgRelRegsGrouped flatMap { case (argString, (relInfoStrings, argRelRegStcrings)) =>
+      val topEntitiesForArg = typer.getTopEntitiesForArg(relInfoStrings map RelInfo.fromString)
+      val predictedTypes = typer.predictTypes(topEntitiesForArg)
+      // now *try* to attach these predicted types to REGs (don't if REG is linked already)
+      val argRelRegs = argRelRegStcrings flatMap typer.getOptReg
+      // try to assign types to every REG in argRelRegs
+      argRelRegs map typer.tryAttachTypes(predictedTypes)
+    }
+    
+    // (REG String)
+    val finalResult: DList[String] = typedRegs map ReVerbExtractionGroup.toTabDelimited
+    
+    persist(toTextFile(finalResult, outputPath + "/"))
   }
 
   // this belongs in a util package somewhere
@@ -183,14 +279,14 @@ object TypeEnumUtils {
   import edu.washington.cs.knowitall.common.Resource.using
   
   import UnlinkableEntityTyper.tabSplit
+
+  case class TypeInfo(val typeString: String, val enum: Int, val instances: Int)
   
   val typeEnumFile = "/fbTypeEnum.txt"
   def getEnumSource = io.Source.fromInputStream(UnlinkableEntityTyper.getClass.getResource(typeEnumFile).openStream)
-  def enumLineToTypeInt(line: String): (String, Int) = { val split = tabSplit.split(line); (split(1), split(0).toInt) }
+  // type, num, count
+  def parseEnumLine(line: String): TypeInfo = { val split = tabSplit.split(line); TypeInfo(split(1), split(0).toInt, split(2).toInt) }
   
-  private lazy val typeToIntMap = using(getEnumSource) { _.getLines map enumLineToTypeInt toMap }
-  private lazy val intToTypeMap = using(getEnumSource) { _.getLines map enumLineToTypeInt map(_.swap) toMap }
-  
-  def typeToInt(typ: String): Int = typeToIntMap(typ)
-  def intToType(int: Int): String = intToTypeMap(int)
+  lazy val typeStringMap = using(getEnumSource) { _.getLines map parseEnumLine map(ti => (ti.typeString, ti)) toMap }
+  lazy val typeEnumMap = using(getEnumSource) { _.getLines map parseEnumLine map(ti => (ti.enum, ti)) toMap }
 }
