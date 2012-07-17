@@ -185,7 +185,7 @@ class UnlinkableEntityTyper(val argField: ArgField) {
       val typeInfoOption = TypeEnumUtils.typeEnumMap.get(typeInt)
       val shareScore = typeInfoOption match {
         case Some(typeInfo) => {
-          val c = typeInfo.instances.toDouble
+          val c = math.max(typeInfo.instances.toDouble, 1)
           val s = maxSimilarEntities.toDouble
           val n = typeGroup.size.toDouble
           math.max(n/s, n/c)
