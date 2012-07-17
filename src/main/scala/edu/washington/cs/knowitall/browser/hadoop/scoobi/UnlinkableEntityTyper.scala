@@ -184,10 +184,15 @@ class UnlinkableEntityTyper(val argField: ArgField) {
     val typesCounted = types.groupBy(identity).map { case (typeInt, typeGroup) => 
       val typeInfoOption = TypeEnumUtils.typeEnumMap.get(typeInt)
       val shareScore = typeInfoOption match {
-        case Some(typeInfo) => typeGroup.size.toDouble / math.log(typeInfo.instances.toDouble)
-        case None => 1
+        case Some(typeInfo) => {
+          val c = typeInfo.instances.toDouble
+          val s = maxSimilarEntities.toDouble
+          val n = typeGroup.size.toDouble
+          math.max(n/s, n/c)
+        }
+        case None => 1.0 / maxSimilarEntities.toDouble
       }
-      (typeInt, typeGroup.size.toDouble / shareScore) 
+      (typeInt, shareScore) 
     }
     typesCounted.filter(_._2 >= minTypesShared).toSeq.sortBy(-_._2).take(maxPredictedTypes)
   }
@@ -196,7 +201,6 @@ class UnlinkableEntityTyper(val argField: ArgField) {
     if (argField.getTypeStrings(reg).isEmpty) argField.attachTypes(reg, types) else reg
   }
 }
-
 
 object UnlinkableEntityTyper extends ScoobiApp {
 
@@ -307,7 +311,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
       val typesNumShared = types.map({ case (ts, num) => "%s@%.02f".format(ts, num) }).mkString(",")
       val rels = notableRels.mkString(",")
       val entities = topEntitiesForArg.mkString(",")
-      Seq(argString, typesNumShared, rels, entities).mkString(" | ")
+      Seq(argString, typesNumShared, rels, entities).mkString("\t")
     }
     
     persist(toTextFile(finalResult, outputPath + "/"))
