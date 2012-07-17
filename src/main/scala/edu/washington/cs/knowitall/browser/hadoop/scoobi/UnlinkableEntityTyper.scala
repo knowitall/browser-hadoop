@@ -194,7 +194,7 @@ class UnlinkableEntityTyper(val argField: ArgField) {
       }
       (typeInt, shareScore) 
     }
-    typesCounted.filter(_._2 >= minTypesShared).toSeq.sortBy(-_._2).take(maxPredictedTypes)
+    typesCounted.filter(_._2 >= minShareScore).toSeq.sortBy(-_._2).take(maxPredictedTypes)
   }
   
   def tryAttachTypes(types: Seq[Int])(reg: REG): REG = {
