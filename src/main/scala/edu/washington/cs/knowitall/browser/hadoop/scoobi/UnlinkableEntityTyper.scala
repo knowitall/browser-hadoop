@@ -109,9 +109,11 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   val maxEntitiesReadPerRel = 50000
   val maxEntitiesWritePerRel = 500
 
-  def getOptReg(regString: String): Option[REG] = ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(regString))._1
+  def getOptReg(regString: String) = time(getOptRegUntimed(regString), Timers.incParseRegCount _)
+  def getOptRegUntimed(regString: String): Option[REG] = ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(regString))._1
 
-  def getOptRelInfo(relRegs: Iterable[REG]): Option[RelInfo] = {
+  def getOptRelInfo(relRegs: Iterable[REG]) = time(getOptRelInfoUntimed(relRegs), Timers.incRelRegCount _)
+  def getOptRelInfoUntimed(relRegs: Iterable[REG]): Option[RelInfo] = {
 
     val headRelNorm = relRegs.head.rel.norm
     
@@ -134,13 +136,16 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   def relationRegKV(group: REG): (String, String) = (group.rel.norm, ReVerbExtractionGroup.toTabDelimited(group))
   
     // returns rel string, group string
-  def argumentRegKV(group: REG): (String, String) = (argField.getArgNorm(group), ReVerbExtractionGroup.toTabDelimited(group))
+  def argumentRegKv(group: REG): (String, String) = time(argumentRegKvUntimed(group), Timers.incArgRegCount _) 
+  def argumentRegKvUntimed(group: REG): (String, String) = (argField.getArgNorm(group), ReVerbExtractionGroup.toTabDelimited(group))
   
   // returns arg string, relinfo, group string
-  def argRelInfo(relInfo: RelInfo)(group: REG): (String, String) = (argField.getArgNorm(group), relInfo.toString)
+  def argRelInfo(relInfo: RelInfo)(group: REG): (String, String) = time(argRelInfoUntimed(relInfo)(group), Timers.incArgRelInfoCount _) 
+  def argRelInfoUntimed(relInfo: RelInfo)(group: REG): (String, String) = (argField.getArgNorm(group), relInfo.toString)
 
   // Input elements are (fbid, count, types)
-  def calculateRelWeight(entities: IndexedSeq[EntityInfo]): Double = {
+  def calculateRelWeight(entities: IndexedSeq[EntityInfo]) = time(calculateRelWeightUntimed(entities), Timers.incRelWeightCount _)
+  def calculateRelWeightUntimed(entities: IndexedSeq[EntityInfo]): Double = {
 
     if (entities.size <= 1) return 0.0
     // now we perform the summation tom describes 
@@ -160,7 +165,8 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   }
   
   // Performs the "find similar entities" step described in the paper
-  def getTopEntitiesForArg(relInfos: Iterable[RelInfo]): Seq[EntityInfo] = {
+  def getTopEntitiesForArg(relInfos: Iterable[RelInfo]) = time(getTopEntitiesForArgUntimed(relInfos), Timers.incGetTopEntitiesCount _)
+  def getTopEntitiesForArgUntimed(relInfos: Iterable[RelInfo]): Seq[EntityInfo] = {
     // flatten entities and their weights
     def expWeight(weight: Double) = math.pow(10, 4*weight) // this is what tom found to work as described in the paper.
     
@@ -175,7 +181,8 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   }
   
   // returns type enum int, #shared. Seq.empty if no prediction.
-  def predictTypes(topEntities: Seq[EntityInfo]): Seq[(Int, Double)] = {
+  def predictTypes(topEntities: Seq[EntityInfo]) = time(predictTypesUntimed(topEntities), Timers.incPredictTypesCount _)
+  def predictTypesUntimed(topEntities: Seq[EntityInfo]): Seq[(Int, Double)] = {
     
     // flatMap the entities to types
     def toTypes(entity: EntityInfo) = entity.types.iterator
@@ -199,6 +206,86 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   
   def tryAttachTypes(types: Seq[Int])(reg: REG): REG = {
     if (argField.getTypeStrings(reg).isEmpty) argField.attachTypes(reg, types) else reg
+  }
+  
+  object Timers {
+    
+    var argRelInfoCount = MutInt.zero
+    var argRelInfoTime = MutInt.zero
+    
+    def incArgRelInfoCount(time: Long): Unit = {
+      argRelInfoCount.inc
+      argRelInfoTime.add(time)
+      bleat(argRelInfoCount, argRelInfoTime, "arg/relinfo pairs: %s, in %s, (Avg: %s)", 10000)
+    }
+    
+    var argRegCount = MutInt.zero
+    var argRegTime = MutInt.zero
+    
+    def incArgRegCount(time: Long): Unit = {
+      argRegCount.inc
+      argRegTime.add(time)
+      bleat(argRegCount, argRegTime, "arg/reg pairs: %s, in %s, (Avg: %s)", 10000)
+    }
+    
+    var relWeightCount = MutInt.zero
+    var relWeightTime = MutInt.zero
+    
+    def incRelWeightCount(time: Long): Unit = {
+      relWeightCount.inc
+      relWeightTime.add(time)
+      bleat(relWeightCount, relWeightTime, "relWeights calculated: %s, in %s, (Avg: %s)", 1000)
+    }
+    
+    var parseRegCount = MutInt.zero
+    var parseRegTime = MutInt.zero
+    
+    def incParseRegCount(time: Long): Unit = {
+      parseRegCount.inc
+      parseRegTime.add(time)
+      bleat(parseRegCount, parseRegTime, "REGs parsed: %s, in %s, (Avg: %s)", 15000)
+    }
+    
+    var loadRelInfoCount = MutInt.zero
+    var loadRelInfoTime = MutInt.zero
+    
+    def incLoadRelInfoCount(time: Long): Unit = {
+      loadRelInfoCount.inc
+      loadRelInfoTime.add(time)
+      bleat(loadRelInfoCount, loadRelInfoTime, "relInfos loaded: %s, in %s, (Avg: %s)", 10000)
+    }
+    
+    var getTopEntitiesCount = MutInt.zero
+    var getTopEntitiesTime = MutInt.zero
+    
+    def incGetTopEntitiesCount(time: Long): Unit = {
+      getTopEntitiesCount.inc
+      getTopEntitiesTime.add(time)
+      bleat(getTopEntitiesCount, getTopEntitiesTime, "calls to getTopEntities: %s, in %s, (Avg: %s)", 1000)
+    }
+    
+    var predictTypesCount = MutInt.zero
+    var predictTypesTime = MutInt.zero
+
+    def incPredictTypesCount(time: Long): Unit = {
+      predictTypesCount.inc
+      predictTypesTime.add(time)
+      bleat(predictTypesCount, predictTypesTime, "calls to predictTypes: %s, in %s, (Avg: %s)", 1000)
+    }
+    
+    var relRegCount = MutInt.zero
+    var relRegTime = MutInt.zero
+    
+    def incRelRegCount(time: Long): Unit = {
+      relRegCount.inc
+      predictTypesTime.add(time)
+      bleat(relRegCount, predictTypesTime, "relReg pairs: %s, in %s, (Avg: %s)", 10000)
+    }
+    
+    private def bleat(count: MutInt, time: MutInt, fmtString: String, interval: Int) = {
+      val avgTime = time.count / count.count
+      if (count.count % interval == 0) System.err.println(fmtString.format(count.count.toString, Seconds.format(time.count), Seconds.format(avgTime)))
+    }
   }
 }
 
@@ -272,7 +359,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
     }
     
     // (argument, REG w/ argument) pairs
-    val argRegPairs = regs map typer.argumentRegKV
+    val argRegPairs = regs map typer.argumentRegKv
     
     // (argument, (Iterable[RelInfos for arg], Iterable[REG w/ arg]))
     val argRelInfosArgRelRegsGrouped: DList[(String, (Iterable[String], Iterable[String]))] = Relational.coGroup(argRelInfoPairs, argRegPairs)
@@ -329,6 +416,12 @@ object UnlinkableEntityTyper extends ScoobiApp {
     }
   }
 }
+
+case class MutInt(var count: Long) { 
+  def inc: Unit = { count += 1 } 
+  def add(t: Long) = { count += t }
+}
+case object MutInt { val zero = MutInt(0) }
 
 object TypeEnumUtils {
   
