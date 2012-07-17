@@ -106,8 +106,8 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   
   val minRelWeight = 0.1
   
-  val maxEntitiesReadPerRel = 50000
-  val maxEntitiesWritePerRel = 500
+  val maxEntitiesReadPerRel = 20 * maxEntitiesWritePerRel
+  val maxEntitiesWritePerRel = 50
 
   def getOptReg(regString: String) = time(getOptRegUntimed(regString), Timers.incParseRegCount _)
   def getOptRegUntimed(regString: String): Option[REG] = ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(regString))._1
