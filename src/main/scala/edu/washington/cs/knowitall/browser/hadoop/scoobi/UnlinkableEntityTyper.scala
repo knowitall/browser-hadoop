@@ -100,11 +100,11 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   
   val maxSimilarEntities = 15
   
-  val minTypesShared = 0
+  val minShareScore = 0
   
-  val maxPredictedTypes = 20
+  val maxPredictedTypes = 6
   
-  val minRelWeight = 0.05
+  val minRelWeight = 0.1
   
   val maxEntitiesReadPerRel = 50000
   val maxEntitiesWritePerRel = 500
