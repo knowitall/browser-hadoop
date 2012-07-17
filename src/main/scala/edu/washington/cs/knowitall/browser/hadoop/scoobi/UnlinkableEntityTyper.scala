@@ -112,7 +112,7 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   def getOptReg(regString: String) = time(getOptRegUntimed(regString), Timers.incParseRegCount _)
   def getOptRegUntimed(regString: String): Option[REG] = ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(regString))._1
 
-  def getOptRelInfo(relRegs: Iterable[REG]) = time(getOptRelInfoUntimed(relRegs), Timers.incRelRegCount _)
+  def getOptRelInfo(relRegs: Iterable[REG]) = time(getOptRelInfoUntimed(relRegs), Timers.incLoadRelInfoCount _)
   def getOptRelInfoUntimed(relRegs: Iterable[REG]): Option[RelInfo] = {
 
     val headRelNorm = relRegs.head.rel.norm
@@ -133,7 +133,8 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   }
 
   // returns rel string, group string
-  def relationRegKV(group: REG): (String, String) = (group.rel.norm, ReVerbExtractionGroup.toTabDelimited(group))
+  def relationRegKv(group: REG) = time(relationRegKvUntimed(group), Timers.incRelRegCount _)
+  def relationRegKvUntimed(group: REG): (String, String) = (group.rel.norm, ReVerbExtractionGroup.toTabDelimited(group))
   
     // returns rel string, group string
   def argumentRegKv(group: REG): (String, String) = time(argumentRegKvUntimed(group), Timers.incArgRegCount _) 
@@ -216,7 +217,7 @@ class UnlinkableEntityTyper(val argField: ArgField) {
     def incArgRelInfoCount(time: Long): Unit = {
       argRelInfoCount.inc
       argRelInfoTime.add(time)
-      bleat(argRelInfoCount, argRelInfoTime, "arg/relinfo pairs: %s, in %s, (Avg: %s)", 10000)
+      bleat(argRelInfoCount, argRelInfoTime, "arg/relinfo pairs: %s, in %s, (Avg: %s)", 2000)
     }
     
     var argRegCount = MutInt.zero
@@ -225,7 +226,7 @@ class UnlinkableEntityTyper(val argField: ArgField) {
     def incArgRegCount(time: Long): Unit = {
       argRegCount.inc
       argRegTime.add(time)
-      bleat(argRegCount, argRegTime, "arg/reg pairs: %s, in %s, (Avg: %s)", 10000)
+      bleat(argRegCount, argRegTime, "arg/reg pairs: %s, in %s, (Avg: %s)", 2000)
     }
     
     var relWeightCount = MutInt.zero
@@ -243,7 +244,7 @@ class UnlinkableEntityTyper(val argField: ArgField) {
     def incParseRegCount(time: Long): Unit = {
       parseRegCount.inc
       parseRegTime.add(time)
-      bleat(parseRegCount, parseRegTime, "REGs parsed: %s, in %s, (Avg: %s)", 15000)
+      bleat(parseRegCount, parseRegTime, "REGs parsed: %s, in %s, (Avg: %s)", 4000)
     }
     
     var loadRelInfoCount = MutInt.zero
@@ -324,7 +325,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
 
     // (relation, REG w/ relation) pairs
     // first, we want to group by relation in order to compute relation weight and entity range. 
-    val relRegPairs = regs map typer.relationRegKV
+    val relRegPairs = regs map typer.relationRegKv
 
     // (relation, Iterable[REG w/ relation]), e.g. the above, grouped by the first element.
     // begin the reduce phase by calling groupByKey 
@@ -421,7 +422,7 @@ case class MutInt(var count: Long) {
   def inc: Unit = { count += 1 } 
   def add(t: Long) = { count += t }
 }
-case object MutInt { val zero = MutInt(0) }
+case object MutInt { def zero = MutInt(0) }
 
 object TypeEnumUtils {
   
