@@ -94,8 +94,6 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   import scala.util.Random
   
   import edu.washington.cs.knowitall.browser.lucene.ExtractionGroupFetcher.entityStoplist
-
-  val debugChecks = false
   
   val maxSimilarEntities = 15
   
@@ -114,22 +112,14 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   def getOptReg(regString: String) = time(getOptRegUntimed(regString), Timers.incParseRegCount _)
   def getOptRegUntimed(regString: String): Option[REG] = ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(regString))._1
 
-  def getOptRelInfo(relRegs: Iterable[REG]) = time(getOptRelInfoUntimed(relRegs), Timers.incLoadRelInfoCount _)
-  def getOptRelInfoUntimed(allRelRegs: Iterable[REG]): Option[RelInfo] = {
-
-    val relRegs = allRelRegs take maxRelationsReadPerArg
-    
-    val headRelNorm = relRegs.head.rel.norm
-    
-    if (debugChecks) require {
-      relRegs.forall(_.rel.norm.equals(headRelNorm))
-    }
+  def getOptRelInfo(relRegs: Iterator[REG]) = time(getOptRelInfoUntimed(relRegs), Timers.incLoadRelInfoCount _)
+  def getOptRelInfoUntimed(relRegs: Iterator[REG]): Option[RelInfo] = {
    
     def entityBlacklistFilter(entity: EntityInfo): Boolean = !entityStoplist.contains(entity.fbid)
     def typelessEntityFilter(entity: EntityInfo): Boolean = !entity.types.isEmpty
     
     val readEntities = relRegs flatMap argField.loadEntityInfo filter entityBlacklistFilter filter typelessEntityFilter take (maxEntitiesReadPerRel)
-    val writeEntities = Random.shuffle(readEntities).take(maxEntitiesWritePerRel)
+    val writeEntities = Random.shuffle(readEntities.toSeq).take(maxEntitiesWritePerRel)
     
     val relWeight = calculateRelWeight(writeEntities.toIndexedSeq)
     if (relWeight < minRelWeight || writeEntities.isEmpty) None
@@ -337,7 +327,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
 
     // (relation, RelInfo) pairs
     val relInfoPairs = relRegGrouped flatMap { case (relString, relRegStrings) => 
-      val relRegs = relRegStrings flatMap typer.getOptReg
+      val relRegs = relRegStrings.iterator flatMap typer.getOptReg
       typer.getOptRelInfo(relRegs).map(relInfo => (relString, relInfo.toString))
     }
 
@@ -352,13 +342,13 @@ object UnlinkableEntityTyper extends ScoobiApp {
       	val relInfoStringOpt = relInfoSingleton.headOption
       	val relRegs = relRegStrings flatMap typer.getOptReg
       	// in-memory group by argument
-      	def argStrings: Set[String] = relRegs.map(argField.getArgNorm _).toSet
+      	def argStrings = relRegs.map(argField.getArgNorm _)
       	// attach relInfo to every argRelReg 
       	relInfoStringOpt match {
       	  case Some(relInfoString) => {
-      	    argStrings.toSeq.map(argString => (argString, relInfoString))
+      	    argStrings.map(argString => (argString, relInfoString))
       	  }
-      	  case None => Seq.empty
+      	  case None => Iterable.empty
       	}
       }
     }
@@ -386,7 +376,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
       val topEntitiesForArg = typer.getTopEntitiesForArg(relInfos)
       val predictedTypes = typer.predictTypes(topEntitiesForArg)
       // now *try* to attach these predicted types to REGs (don't if REG is linked already)
-      val argRelRegs = argRelRegStrings flatMap typer.getOptReg
+      //val argRelRegs = argRelRegStrings flatMap typer.getOptReg
       // try to assign types to every REG in argRelRegs
       //argRelRegs map typer.tryAttachTypes(predictedTypes)
       Seq((argString, predictedTypes, topEntitiesForArg.take(5).map(_.fbid)))
