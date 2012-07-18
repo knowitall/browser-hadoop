@@ -103,8 +103,8 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   
   val minRelWeight = 0.15
   
-  val maxEntitiesReadPerRel = 20 * maxEntitiesWritePerRel
-  val maxEntitiesWritePerRel = 50
+  val maxEntitiesReadPerRel = 2000
+  val maxEntitiesWritePerRel = 100
 
   val maxRelInfosReadPerArg = 25000
 
@@ -113,21 +113,23 @@ class UnlinkableEntityTyper(val argField: ArgField) {
 
   var numRelInfosOutput = 0
   var numRelInfosSkipped = 0
+  var numSkippedDueToEmpty = 0
   
   def getOptRelInfo(relRegs: Iterator[REG]) = time(getOptRelInfoUntimed(relRegs), Timers.incLoadRelInfoCount _)
   def getOptRelInfoUntimed(relRegs: Iterator[REG]): Option[RelInfo] = {
    
-    if (Timers.parseRegCount.count % 500 == 0) System.err.println("num relinfos output: %s, num not output: %s".format(numRelInfosOutput, numRelInfosSkipped))
+    if (Timers.loadRelInfoCount.count % 500 == 0) System.err.println("num relinfos output: %s, num not output: %s, num empty: %s".format(numRelInfosOutput, numRelInfosSkipped, numSkippedDueToEmpty))
     
     def entityBlacklistFilter(entity: EntityInfo): Boolean = !entityStoplist.contains(entity.fbid)
     def typelessEntityFilter(entity: EntityInfo): Boolean = !entity.types.isEmpty
     
-    val readEntities = relRegs flatMap argField.loadEntityInfo filter entityBlacklistFilter filter typelessEntityFilter take (maxEntitiesReadPerRel)
+    val readEntities = relRegs.flatMap(argField.loadEntityInfo _).filter(entityBlacklistFilter).filter(typelessEntityFilter).take(maxEntitiesReadPerRel)
     val writeEntities = Random.shuffle(readEntities.toSeq).take(maxEntitiesWritePerRel)
     
     val relWeight = calculateRelWeight(writeEntities.toIndexedSeq)
     if (relWeight < minRelWeight || writeEntities.isEmpty) {
       numRelInfosSkipped += 1
+      if (writeEntities.isEmpty) numSkippedDueToEmpty += 1
       None
     }
     else {
