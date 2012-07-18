@@ -105,16 +105,20 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   
   val maxEntitiesReadPerRel = 20 * maxEntitiesWritePerRel
   val maxEntitiesWritePerRel = 50
-  
-  val maxRelationsReadPerArg = 25000
+
   val maxRelInfosReadPerArg = 25000
 
   def getOptReg(regString: String) = time(getOptRegUntimed(regString), Timers.incParseRegCount _)
   def getOptRegUntimed(regString: String): Option[REG] = ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(regString))._1
 
+  var numRelInfosOutput = 0
+  var numRelInfosSkipped = 0
+  
   def getOptRelInfo(relRegs: Iterator[REG]) = time(getOptRelInfoUntimed(relRegs), Timers.incLoadRelInfoCount _)
   def getOptRelInfoUntimed(relRegs: Iterator[REG]): Option[RelInfo] = {
    
+    if (Timers.parseRegCount.count % 500 == 0) System.err.println("num relinfos output: %s, num not output: %s".format(numRelInfosOutput, numRelInfosSkipped))
+    
     def entityBlacklistFilter(entity: EntityInfo): Boolean = !entityStoplist.contains(entity.fbid)
     def typelessEntityFilter(entity: EntityInfo): Boolean = !entity.types.isEmpty
     
@@ -122,8 +126,14 @@ class UnlinkableEntityTyper(val argField: ArgField) {
     val writeEntities = Random.shuffle(readEntities.toSeq).take(maxEntitiesWritePerRel)
     
     val relWeight = calculateRelWeight(writeEntities.toIndexedSeq)
-    if (relWeight < minRelWeight || writeEntities.isEmpty) None
-    else Some(RelInfo(relWeight, writeEntities.toSet))
+    if (relWeight < minRelWeight || writeEntities.isEmpty) {
+      numRelInfosSkipped += 1
+      None
+    }
+    else {
+      numRelInfosOutput += 1
+      Some(RelInfo(relWeight, writeEntities.toSet))
+    }
   }
 
   // returns rel string, group string
@@ -196,12 +206,14 @@ class UnlinkableEntityTyper(val argField: ArgField) {
       }
       (typeInt, shareScore) 
     }
-    typesCounted.filter(_._2 >= minShareScore).toSeq.sortBy(-_._2).take(maxPredictedTypes)
+    typesCounted.toSeq.sortBy(-_._2).take(maxPredictedTypes)
   }
   
   def tryAttachTypes(types: Seq[Int])(reg: REG): REG = {
     if (argField.getTypeStrings(reg).isEmpty) argField.attachTypes(reg, types) else reg
   }
+  
+  //def getArgRelInfoPairs(relString, (relInfoSingleton, relRegStrings)
   
   object Timers {
     
@@ -337,6 +349,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
     
     // (argument, RelInfo) pairs
     val argRelInfoPairs: DList[(String, String)] = {
+      var numRelInfoPairs = 0
       relInfoRegGrouped.flatMap { case (relString, (relInfoSingleton, relRegStrings)) => 
        
       	val relInfoStringOpt = relInfoSingleton.headOption
@@ -344,7 +357,11 @@ object UnlinkableEntityTyper extends ScoobiApp {
       	// attach relInfo to every argRelReg 
       	relInfoStringOpt match {
       	  case Some(relInfoString) => {
-      	    argStrings.map(argString => (argString, relInfoString))
+      	    argStrings.map { argString => 
+      	      numRelInfoPairs += 1
+      	      if (numRelInfoPairs == 1 || numRelInfoPairs % 2000 == 0) System.err.println("num rel info pairs: %s".format(numRelInfoPairs))
+      	      (argString, relInfoString) 
+      	    }
       	  }
       	  case None => Iterable.empty
       	}
