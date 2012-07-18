@@ -103,8 +103,8 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   
   val minRelWeight = 0.15
   
-  val maxEntitiesReadPerRel = 2000
-  val maxEntitiesWritePerRel = 100
+  val maxEntitiesReadPerRel = 4000
+  val maxEntitiesWritePerRel = 400
 
   val maxRelInfosReadPerArg = 25000
 
@@ -189,7 +189,7 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   
   // returns type enum int, #shared. Seq.empty if no prediction.
   def predictTypes(topEntities: Seq[EntityInfo]) = time(predictTypesUntimed(topEntities), Timers.incPredictTypesCount _)
-  def predictTypesUntimed(topEntities: Seq[EntityInfo]): Seq[(Int, Double)] = {
+  def predictTypesUntimed(topEntities: Seq[EntityInfo]): Seq[(Int, Int)] = {
     
     // flatMap the entities to types
     def toTypes(entity: EntityInfo) = entity.types.iterator
@@ -197,15 +197,16 @@ class UnlinkableEntityTyper(val argField: ArgField) {
     // type, #shared
     val typesCounted = types.groupBy(identity).map { case (typeInt, typeGroup) => 
       val typeInfoOption = TypeEnumUtils.typeEnumMap.get(typeInt)
-      val shareScore = typeInfoOption match {
-        case Some(typeInfo) => {
-          val c = math.max(typeInfo.instances.toDouble, 1)
-          val s = maxSimilarEntities.toDouble
-          val n = typeGroup.size.toDouble
-          math.max(n/s, n/c)
-        }
-        case None => 1.0 / maxSimilarEntities.toDouble
-      }
+//      val shareScore = typeInfoOption match {
+//        case Some(typeInfo) => {
+//          val c = math.max(typeInfo.instances.toDouble, 1)
+//          val s = maxSimilarEntities.toDouble
+//          val n = typeGroup.size.toDouble
+//          math.max(n/s, n/c)
+//        }
+//        case None => 1.0 / maxSimilarEntities.toDouble
+//      }
+      val shareScore = typeGroup.size
       (typeInt, shareScore) 
     }
     typesCounted.toSeq.sortBy(-_._2).take(maxPredictedTypes)
@@ -214,8 +215,6 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   def tryAttachTypes(types: Seq[Int])(reg: REG): REG = {
     if (argField.getTypeStrings(reg).isEmpty) argField.attachTypes(reg, types) else reg
   }
-  
-  //def getArgRelInfoPairs(relString, (relInfoSingleton, relRegStrings)
   
   object Timers {
     
