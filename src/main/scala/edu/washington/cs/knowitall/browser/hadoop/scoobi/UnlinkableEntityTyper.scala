@@ -87,26 +87,21 @@ case object RelInfo {
   }
 }
 
-class UnlinkableEntityTyper(val argField: ArgField) {
+class UnlinkableEntityTyper(
+    val argField: ArgField, 
+    val maxSimilarEntities: Int, 
+    val maxPredictedTypes: Int,
+    val minShareScore: Int,
+    val minRelWeight: Double, 
+    val maxEntitiesReadPerRel: Int, 
+    val maxEntitiesWritePerRel: Int,
+    val maxRelInfosReadPerArg: Int) {
 
   import UnlinkableEntityTyper.{ REG, allPairs, tabSplit }
   import TypeEnumUtils.typeStringMap
   import scala.util.Random
   
   import edu.washington.cs.knowitall.browser.lucene.ExtractionGroupFetcher.entityStoplist
-  
-  val maxSimilarEntities = 15
-  
-  val minShareScore = 0
-  
-  val maxPredictedTypes = 6
-  
-  val minRelWeight = 0.15
-  
-  val maxEntitiesReadPerRel = 4000
-  val maxEntitiesWritePerRel = 400
-
-  val maxRelInfosReadPerArg = 25000
 
   def getOptReg(regString: String) = time(getOptRegUntimed(regString), Timers.incParseRegCount _)
   def getOptRegUntimed(regString: String): Option[REG] = ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(regString))._1
@@ -308,6 +303,14 @@ object UnlinkableEntityTyper extends ScoobiApp {
     var inputPath, outputPath = ""
     var argField: ArgField = Arg1()
 
+    var maxSimilarEntities = 15
+    var maxPredictedTypes = 5
+    var minShareScore = 6
+    var minRelWeight = 0.12
+    var maxEntitiesReadPerRel = 4000
+    var maxEntitiesWritePerRel = 400
+    var maxRelInfosReadPerArg = 25000
+
     val parser = new OptionParser() {
       arg("inputPath", "hdfs input path, ExtractionGroups", { str => inputPath = str })
       arg("outputPath", "hdfs output path, ExtractionGroups", { str => outputPath = str })
@@ -316,13 +319,27 @@ object UnlinkableEntityTyper extends ScoobiApp {
         else if (str.equals("arg2")) argField = Arg2()
         else throw new IllegalArgumentException("arg must be either arg1 or arg2")
       })
+      opt("maxSimilarEntities", "maximum similar entities considered per argument", { str => maxSimilarEntities = str.toInt })
+      opt("maxPredictedTypes", "maximum predicated types in final output", { str => maxPredictedTypes = str.toInt })
+      opt("minRelWeight", "minimum rel weight needed to consider entities from rel", { str => minRelWeight = str.toDouble })
+      opt("maxEntitiesReadPerRel", "maximum entities read per rel", { str => maxEntitiesReadPerRel = str.toInt })
+      opt("maxEntitiesWritePerRel", "maximum entities to write as intermediate output per rel", { str => maxEntitiesWritePerRel = str.toInt })
+      opt("maxRelInfosReadPerArg", "maximumRelInfos read into memory per argument", { str => maxRelInfosReadPerArg })
     }
 
     if (!parser.parse(args)) System.exit(1)
     
     this.configuration.jobNameIs("Unlinkable-Type-Prediction")
     
-    val typer = new UnlinkableEntityTyper(argField)
+    val typer = new UnlinkableEntityTyper(
+        argField=argField,
+        maxSimilarEntities=maxSimilarEntities,
+        maxPredictedTypes=maxPredictedTypes,
+        minRelWeight=minRelWeight,
+        maxEntitiesReadPerRel=maxEntitiesReadPerRel,
+        maxEntitiesWritePerRel=maxEntitiesWritePerRel,
+        maxRelInfosReadPerArg=maxRelInfosReadPerArg
+      )
 
     // serialized ReVerbExtractions
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
