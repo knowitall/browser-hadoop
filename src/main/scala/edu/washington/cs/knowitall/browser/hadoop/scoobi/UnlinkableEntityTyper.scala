@@ -101,13 +101,13 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   
   val maxPredictedTypes = 6
   
-  val minRelWeight = 0.1
+  val minRelWeight = 0.15
   
   val maxEntitiesReadPerRel = 20 * maxEntitiesWritePerRel
   val maxEntitiesWritePerRel = 50
   
-  val maxRelationsReadPerArg = 50000
-  val maxRelInfosReadPerArg = 50000
+  val maxRelationsReadPerArg = 25000
+  val maxRelInfosReadPerArg = 25000
 
   def getOptReg(regString: String) = time(getOptRegUntimed(regString), Timers.incParseRegCount _)
   def getOptRegUntimed(regString: String): Option[REG] = ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(regString))._1
@@ -340,9 +340,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
       relInfoRegGrouped.flatMap { case (relString, (relInfoSingleton, relRegStrings)) => 
        
       	val relInfoStringOpt = relInfoSingleton.headOption
-      	val relRegs = relRegStrings flatMap typer.getOptReg
-      	// in-memory group by argument
-      	def argStrings = relRegs.map(argField.getArgNorm _)
+      	def argStrings = relRegStrings flatMap typer.getOptReg map argField.getArgNorm
       	// attach relInfo to every argRelReg 
       	relInfoStringOpt match {
       	  case Some(relInfoString) => {
