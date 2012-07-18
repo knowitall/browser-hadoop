@@ -321,6 +321,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
       })
       opt("maxSimilarEntities", "maximum similar entities considered per argument", { str => maxSimilarEntities = str.toInt })
       opt("maxPredictedTypes", "maximum predicated types in final output", { str => maxPredictedTypes = str.toInt })
+      opt("minShareScore", "minimum entities sharing a type needed", { str => minShareScore = str.toInt })
       opt("minRelWeight", "minimum rel weight needed to consider entities from rel", { str => minRelWeight = str.toDouble })
       opt("maxEntitiesReadPerRel", "maximum entities read per rel", { str => maxEntitiesReadPerRel = str.toInt })
       opt("maxEntitiesWritePerRel", "maximum entities to write as intermediate output per rel", { str => maxEntitiesWritePerRel = str.toInt })
@@ -335,6 +336,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
         argField=argField,
         maxSimilarEntities=maxSimilarEntities,
         maxPredictedTypes=maxPredictedTypes,
+        minShareScore = minShareScore,
         minRelWeight=minRelWeight,
         maxEntitiesReadPerRel=maxEntitiesReadPerRel,
         maxEntitiesWritePerRel=maxEntitiesWritePerRel,
