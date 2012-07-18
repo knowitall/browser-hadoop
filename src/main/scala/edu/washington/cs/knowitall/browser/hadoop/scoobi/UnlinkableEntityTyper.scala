@@ -96,7 +96,7 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   
   import edu.washington.cs.knowitall.browser.lucene.ExtractionGroupFetcher.entityStoplist
 
-  val debugChecks = true
+  val debugChecks = false
   
   val maxSimilarEntities = 15
   
@@ -108,13 +108,17 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   
   val maxEntitiesReadPerRel = 20 * maxEntitiesWritePerRel
   val maxEntitiesWritePerRel = 50
+  
+  val maxRelationsReadPerArg = 25000
 
   def getOptReg(regString: String) = time(getOptRegUntimed(regString), Timers.incParseRegCount _)
   def getOptRegUntimed(regString: String): Option[REG] = ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(regString))._1
 
   def getOptRelInfo(relRegs: Iterable[REG]) = time(getOptRelInfoUntimed(relRegs), Timers.incLoadRelInfoCount _)
-  def getOptRelInfoUntimed(relRegs: Iterable[REG]): Option[RelInfo] = {
+  def getOptRelInfoUntimed(allRelRegs: Iterable[REG]): Option[RelInfo] = {
 
+    val relRegs = allRelRegs take maxRelationsReadPerArg
+    
     val headRelNorm = relRegs.head.rel.norm
     
     if (debugChecks) require {
