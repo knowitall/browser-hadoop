@@ -75,16 +75,15 @@ case object EntityInfo {
   }
 }
 
-case class RelInfo(val relString: String, val weight: Double, val entities: Set[EntityInfo]) {
-  override def toString = "%s:%.02f:%s".format(relString, weight, entities.mkString(":"))
+case class RelInfo(val weight: Double, val entities: Set[EntityInfo]) {
+  override def toString = "%.02f:%s".format(weight, entities.mkString(":"))
 }
 case object RelInfo {
   def fromString(str: String) = {
     val split = str.split(":")
-    val relString = split(0)
-    val weight = split(1).toDouble
-    val entities = split.drop(2) map EntityInfo.fromString
-    RelInfo(relString, weight, entities.toSet)
+    val weight = split(0).toDouble
+    val entities = split.drop(1) map EntityInfo.fromString
+    RelInfo(weight, entities.toSet)
   }
 }
 
@@ -109,7 +108,8 @@ class UnlinkableEntityTyper(val argField: ArgField) {
   val maxEntitiesReadPerRel = 20 * maxEntitiesWritePerRel
   val maxEntitiesWritePerRel = 50
   
-  val maxRelationsReadPerArg = 25000
+  val maxRelationsReadPerArg = 50000
+  val maxRelInfosReadPerArg = 50000
 
   def getOptReg(regString: String) = time(getOptRegUntimed(regString), Timers.incParseRegCount _)
   def getOptRegUntimed(regString: String): Option[REG] = ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(regString))._1
@@ -133,7 +133,7 @@ class UnlinkableEntityTyper(val argField: ArgField) {
     
     val relWeight = calculateRelWeight(writeEntities.toIndexedSeq)
     if (relWeight < minRelWeight || writeEntities.isEmpty) None
-    else Some(RelInfo(headRelNorm, relWeight, writeEntities.toSet))
+    else Some(RelInfo(relWeight, writeEntities.toSet))
   }
 
   // returns rel string, group string
@@ -175,7 +175,7 @@ class UnlinkableEntityTyper(val argField: ArgField) {
     // flatten entities and their weights
     def expWeight(weight: Double) = math.pow(10, 4*weight) // this is what tom found to work as described in the paper.
     
-    val entitiesWeighted = relInfos.flatMap { relInfo => 
+    val entitiesWeighted = relInfos.take(maxRelInfosReadPerArg).flatMap { relInfo => 
       relInfo.entities.map(ent => (ent, expWeight(relInfo.weight)))
     }
     // now group by entity and sum the weight
@@ -381,29 +381,28 @@ object UnlinkableEntityTyper extends ScoobiApp {
     
     // (REG)
     val typedRegs = argRelInfosArgRelRegsGrouped flatMap { case (argString, (relInfoStrings, argRelRegStrings)) =>
-      val relInfos = relInfoStrings map RelInfo.fromString toSeq // debug: remove toSeq
-      val notableRels = getNotableRels(relInfos) map(ri => "%s:%.04f".format(ri.relString, ri.weight)) // debug, deleteme
+      val relInfos = relInfoStrings map RelInfo.fromString // debug: remove toSeq
+      //val notableRels = getNotableRels(relInfos) map(ri => "%s:%.04f".format(ri.relString, ri.weight)) // debug, deleteme
       val topEntitiesForArg = typer.getTopEntitiesForArg(relInfos)
       val predictedTypes = typer.predictTypes(topEntitiesForArg)
       // now *try* to attach these predicted types to REGs (don't if REG is linked already)
       val argRelRegs = argRelRegStrings flatMap typer.getOptReg
       // try to assign types to every REG in argRelRegs
       //argRelRegs map typer.tryAttachTypes(predictedTypes)
-      Seq((argString, predictedTypes, notableRels, topEntitiesForArg.take(5).map(_.fbid)))
+      Seq((argString, predictedTypes, topEntitiesForArg.take(5).map(_.fbid)))
     }
     
     // (REG String)
     //val finalResult: DList[String] = typedRegs map ReVerbExtractionGroup.toTabDelimited
     
     // this entire method can be thrown away when done debugging
-    val finalResult: DList[String] = typedRegs map { case (argString, predictedTypes, notableRels, topEntitiesForArg) =>
+    val finalResult: DList[String] = typedRegs map { case (argString, predictedTypes, topEntitiesForArg) =>
       val types = predictedTypes.flatMap { case (typeInt, numShared) =>
         TypeEnumUtils.typeEnumMap.get(typeInt).map(typeInfo => (typeInfo.typeString, numShared))
       }
       val typesNumShared = types.map({ case (ts, num) => "%s@%.02f".format(ts, num) }).mkString(",")
-      val rels = notableRels.mkString(",")
       val entities = topEntitiesForArg.mkString(",")
-      Seq(argString, typesNumShared, rels, entities).mkString("\t")
+      Seq(argString, typesNumShared, entities).mkString("\t")
     }
     
     persist(toTextFile(finalResult, outputPath + "/"))
