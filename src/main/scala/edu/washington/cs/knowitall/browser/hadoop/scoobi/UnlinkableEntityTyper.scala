@@ -306,9 +306,9 @@ object UnlinkableEntityTyper extends ScoobiApp {
     var maxSimilarEntities = 15
     var maxPredictedTypes = 5
     var minShareScore = 6
-    var minRelWeight = 0.12
-    var maxEntitiesReadPerRel = 4000
-    var maxEntitiesWritePerRel = 400
+    var minRelWeight = 0.10
+    var maxEntitiesReadPerRel = 5000
+    var maxEntitiesWritePerRel = 150
     var maxRelInfosReadPerArg = 25000
 
     val parser = new OptionParser() {
