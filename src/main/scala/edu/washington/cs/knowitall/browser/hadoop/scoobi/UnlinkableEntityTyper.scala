@@ -137,6 +137,8 @@ class UnlinkableEntityTyper(
   def relationRegKv(group: REG) = time(relationRegKvUntimed(group), Timers.incRelRegCount _)
   def relationRegKvUntimed(group: REG): (String, String) = (group.rel.norm, ReVerbExtractionGroup.toTabDelimited(group))
   
+  def relationArgKv(group: REG): (String, String) = (group.rel.norm, argField.getArgNorm(group))
+  
     // returns rel string, group string
   def argumentRegKv(group: REG): (String, String) = time(argumentRegKvUntimed(group), Timers.incArgRegCount _) 
   def argumentRegKvUntimed(group: REG): (String, String) = (argField.getArgNorm(group), ReVerbExtractionGroup.toTabDelimited(group))
@@ -363,21 +365,23 @@ object UnlinkableEntityTyper extends ScoobiApp {
       typer.getOptRelInfo(relRegs).map(relInfo => (relString, relInfo.toString))
     }
 
+    
+    val relArgPairs = regs map typer.relationArgKv
+    
     // (relation, Singleton[RelInfo], Groups of REG w/ relation) 
     // groups of relInfoPairs in the result are always singleton iterables, since there is only one relInfo per rel.
-    val relInfoRegGrouped = Relational.coGroup(relInfoPairs, relRegPairs)
+    val relInfoRegGrouped = Relational.coGroup(relInfoPairs, relArgPairs)
     
-    // (argument, RelInfo) pairs
+    // (argument, RelInfo, arg string) pairs
     val argRelInfoPairs: DList[(String, String)] = {
       var numRelInfoPairs = 0
-      relInfoRegGrouped.flatMap { case (relString, (relInfoSingleton, relRegStrings)) => 
+      relInfoRegGrouped.flatMap { case (relString, (relInfoSingleton, relArgStrings)) => 
        
       	val relInfoStringOpt = relInfoSingleton.headOption
-      	def argStrings = relRegStrings flatMap typer.getOptReg map argField.getArgNorm
       	// attach relInfo to every argRelReg 
       	relInfoStringOpt match {
       	  case Some(relInfoString) => {
-      	    argStrings.map { argString => 
+      	    relArgStrings.map { argString => 
       	      numRelInfoPairs += 1
       	      if (numRelInfoPairs == 1 || numRelInfoPairs % 2000 == 0) System.err.println("num rel info pairs: %s".format(numRelInfoPairs))
       	      (argString, relInfoString) 
