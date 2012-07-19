@@ -110,15 +110,12 @@ class UnlinkableEntityTyper(
   var numRelInfosSkipped = 0
   var numSkippedDueToEmpty = 0
   
-  def getOptRelInfo(relRegs: Iterator[REG]) = time(getOptRelInfoUntimed(relRegs), Timers.incLoadRelInfoCount _)
-  def getOptRelInfoUntimed(relRegs: Iterator[REG]): Option[RelInfo] = {
+  def getOptRelInfo(relEntities: Iterator[EntityInfo]) = time(getOptRelInfoUntimed(relEntities), Timers.incLoadRelInfoCount _)
+  def getOptRelInfoUntimed(relEntities: Iterator[EntityInfo]): Option[RelInfo] = {
    
     if (Timers.loadRelInfoCount.count % 500 == 0) System.err.println("num relinfos output: %s, num not output: %s, num empty: %s".format(numRelInfosOutput, numRelInfosSkipped, numSkippedDueToEmpty))
-    
-    def entityBlacklistFilter(entity: EntityInfo): Boolean = !entityStoplist.contains(entity.fbid)
-    def typelessEntityFilter(entity: EntityInfo): Boolean = !entity.types.isEmpty
-    
-    val readEntities = relRegs.flatMap(argField.loadEntityInfo _).filter(entityBlacklistFilter).filter(typelessEntityFilter).take(maxEntitiesReadPerRel)
+   
+    val readEntities = relEntities take(maxEntitiesReadPerRel)
     val writeEntities = Random.shuffle(readEntities.toSeq).take(maxEntitiesWritePerRel)
     
     val relWeight = calculateRelWeight(writeEntities.toIndexedSeq)
@@ -134,9 +131,13 @@ class UnlinkableEntityTyper(
   }
 
   // returns rel string, group string
-  def relationRegKv(group: REG) = time(relationRegKvUntimed(group), Timers.incRelRegCount _)
-  def relationRegKvUntimed(group: REG): (String, String) = (group.rel.norm, ReVerbExtractionGroup.toTabDelimited(group))
-  
+  def relationEntityKv(group: REG) = time(relationRegKvUntimed(group), Timers.incRelRegCount _)
+  def relationRegKvUntimed(group: REG): Option[(String, String)] = {
+    def entityBlacklistFilter(entity: EntityInfo): Boolean = !entityStoplist.contains(entity.fbid)
+    def typelessEntityFilter(entity: EntityInfo): Boolean = !entity.types.isEmpty
+    argField.loadEntityInfo(group) filter entityBlacklistFilter filter typelessEntityFilter map { entityInfo => (group.rel.norm, entityInfo.toString) }
+  }
+
   def relationArgKv(group: REG): (String, String) = (group.rel.norm, argField.getArgNorm(group))
   
     // returns rel string, group string
@@ -353,16 +354,16 @@ object UnlinkableEntityTyper extends ScoobiApp {
 
     // (relation, REG w/ relation) pairs
     // first, we want to group by relation in order to compute relation weight and entity range. 
-    val relRegPairs = regs map typer.relationRegKv
+    val relEntityPairs = regs flatMap typer.relationEntityKv
 
     // (relation, Iterable[REG w/ relation]), e.g. the above, grouped by the first element.
     // begin the reduce phase by calling groupByKey 
-    val relRegGrouped = relRegPairs.groupByKey
+    def relEntityGrouped = relEntityPairs.groupByKey
 
     // (relation, RelInfo) pairs
-    val relInfoPairs = relRegGrouped flatMap { case (relString, relRegStrings) => 
-      val relRegs = relRegStrings.iterator flatMap typer.getOptReg
-      typer.getOptRelInfo(relRegs).map(relInfo => (relString, relInfo.toString))
+    val relInfoPairs = relEntityGrouped flatMap { case (relString, relEntityStrings) => 
+      val relEntities = relEntityStrings.iterator map EntityInfo.fromString
+      typer.getOptRelInfo(relEntities).map(relInfo => (relString, relInfo.toString))
     }
 
     
@@ -429,7 +430,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
       val types = predictedTypes.flatMap { case (typeInt, numShared) =>
         TypeEnumUtils.typeEnumMap.get(typeInt).map(typeInfo => (typeInfo.typeString, numShared))
       }
-      val typesNumShared = types.map({ case (ts, num) => "%s@%.02f".format(ts, num) }).mkString(",")
+      val typesNumShared = types.map({ case (ts, num) => "%s@%d".format(ts, num) }).mkString(",")
       val entities = topEntitiesForArg.mkString(",")
       Seq(argString, typesNumShared, entities).mkString("\t")
     }
