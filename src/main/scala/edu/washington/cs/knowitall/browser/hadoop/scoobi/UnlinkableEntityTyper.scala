@@ -128,8 +128,8 @@ class UnlinkableEntityTyper(
     val readEntities = relEntities take(maxEntitiesReadPerRel)
     val writeEntities = Random.shuffle(readEntities.toSeq).take(maxEntitiesWritePerRel)
     
-    val relWeight = calculateRelWeight(writeEntities.toIndexedSeq)
-    if (relWeight < minRelWeight || writeEntities.isEmpty) {
+    lazy val relWeight = calculateRelWeight(writeEntities.toIndexedSeq)
+    if (relString.length <= 3 || writeEntities.isEmpty || relWeight < minRelWeight) {
       numRelInfosSkipped += 1
       if (writeEntities.isEmpty) numSkippedDueToEmpty += 1
       None
