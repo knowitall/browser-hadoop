@@ -76,15 +76,24 @@ case object EntityInfo {
 }
 
 case class RelInfo(val string: String, val weight: Double, val entities: Set[EntityInfo]) {
-  override def toString = "%s:%.02f:%s".format(string, weight, entities.mkString(":"))
+  val strings = Seq(string, "%.02f".format(weight)) ++ entities.map(_.toString)
+  override def toString = strings.map(_.replaceAll(":", "_COLON_")).mkString(":")
 }
 case object RelInfo {
   def fromString(str: String) = {
-    val split = str.split(":")
-    val string = split(0)
-    val weight = split(1).toDouble
-    val entities = split.drop(2) map EntityInfo.fromString
-    RelInfo(string, weight, entities.toSet)
+    try {
+      val split = str.split(":").map(_.replaceAll("_COLON_", ":"))
+      val string = split(0)
+      val weight = split(1).toDouble
+      val entities = split.drop(2) map EntityInfo.fromString
+      Some(RelInfo(string, weight, entities.toSet))
+    } catch {
+      case e: Exception => {
+        e.printStackTrace
+        System.err.println("RelInfo parse error: %s, continuing...".format(str))
+        None
+      }
+    }
   }
 }
 
@@ -311,7 +320,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
 
     var maxSimilarEntities = 15
     var maxPredictedTypes = 5
-    var minShareScore = 6
+    var minShareScore = 7
     var minRelWeight = 0.10
     var maxEntitiesReadPerRel = 5000
     var maxEntitiesWritePerRel = 150
@@ -412,7 +421,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
     
     // (REG)
     val typedRegs = argRelInfosGrouped flatMap { case (argString, relInfoStrings) =>
-      val relInfos = relInfoStrings map RelInfo.fromString take(maxRelInfosReadPerArg) toSeq
+      val relInfos = relInfoStrings flatMap RelInfo.fromString take(maxRelInfosReadPerArg) toSeq
       def notableRels = getNotableRels(relInfos) map(ri => "%s:%.02f".format(ri.string, ri.weight)) // debug, deleteme
       val (topEntitiesForArg, totalEntityWeight) = typer.getTopEntitiesForArg(relInfos)
       val predictedTypes = typer.predictTypes(topEntitiesForArg)
