@@ -75,15 +75,16 @@ case object EntityInfo {
   }
 }
 
-case class RelInfo(val weight: Double, val entities: Set[EntityInfo]) {
-  override def toString = "%.02f:%s".format(weight, entities.mkString(":"))
+case class RelInfo(val string: String, val weight: Double, val entities: Set[EntityInfo]) {
+  override def toString = "%s:%.02f:%s".format(string, weight, entities.mkString(":"))
 }
 case object RelInfo {
   def fromString(str: String) = {
     val split = str.split(":")
-    val weight = split(0).toDouble
-    val entities = split.drop(1) map EntityInfo.fromString
-    RelInfo(weight, entities.toSet)
+    val string = split(0)
+    val weight = split(1).toDouble
+    val entities = split.drop(2) map EntityInfo.fromString
+    RelInfo(string, weight, entities.toSet)
   }
 }
 
@@ -110,8 +111,8 @@ class UnlinkableEntityTyper(
   var numRelInfosSkipped = 0
   var numSkippedDueToEmpty = 0
   
-  def getOptRelInfo(relEntities: Iterator[EntityInfo]) = time(getOptRelInfoUntimed(relEntities), Timers.incLoadRelInfoCount _)
-  def getOptRelInfoUntimed(relEntities: Iterator[EntityInfo]): Option[RelInfo] = {
+  def getOptRelInfo(relString: String, relEntities: Iterator[EntityInfo]) = time(getOptRelInfoUntimed(relString, relEntities), Timers.incLoadRelInfoCount _)
+  def getOptRelInfoUntimed(relString: String, relEntities: Iterator[EntityInfo]): Option[RelInfo] = {
    
     if (Timers.loadRelInfoCount.count % 500 == 0) System.err.println("num relinfos output: %s, num not output: %s, num empty: %s".format(numRelInfosOutput, numRelInfosSkipped, numSkippedDueToEmpty))
    
@@ -126,7 +127,7 @@ class UnlinkableEntityTyper(
     }
     else {
       numRelInfosOutput += 1
-      Some(RelInfo(relWeight, writeEntities.toSet))
+      Some(RelInfo(relString, relWeight, writeEntities.toSet))
     }
   }
 
@@ -170,19 +171,21 @@ class UnlinkableEntityTyper(
   }
   
   // Performs the "find similar entities" step described in the paper
-  def getTopEntitiesForArg(relInfos: Iterable[RelInfo]) = time(getTopEntitiesForArgUntimed(relInfos), Timers.incGetTopEntitiesCount _)
-  def getTopEntitiesForArgUntimed(relInfos: Iterable[RelInfo]): Seq[EntityInfo] = {
+  // returns totalentity weight as a second argument
+  def getTopEntitiesForArg(relInfos: Seq[RelInfo]) = time(getTopEntitiesForArgUntimed(relInfos), Timers.incGetTopEntitiesCount _)
+  def getTopEntitiesForArgUntimed(relInfos: Seq[RelInfo]): (Seq[EntityInfo], Double) = {
     // flatten entities and their weights
     def expWeight(weight: Double) = math.pow(10, 4*weight) // this is what tom found to work as described in the paper.
     
-    val entitiesWeighted = relInfos.take(maxRelInfosReadPerArg).flatMap { relInfo => 
+    val entitiesWeighted = relInfos.flatMap { relInfo => 
       relInfo.entities.map(ent => (ent, expWeight(relInfo.weight)))
     }
+    val totalWeight = entitiesWeighted.map(_._2).sum
     // now group by entity and sum the weight
     val topEntities = entitiesWeighted.groupBy(_._1).iterator.map { case (entity, entGroup) => 
       (entity, entGroup.map(_._2).sum)  
     }.toSeq.sortBy(-_._2).take(maxSimilarEntities)
-    topEntities.map(_._1)
+    (topEntities.map(_._1), totalWeight)
   }
   
   // returns type enum int, #shared. Seq.empty if no prediction.
@@ -207,7 +210,7 @@ class UnlinkableEntityTyper(
       val shareScore = typeGroup.size
       (typeInt, shareScore) 
     }
-    typesCounted.toSeq.sortBy(-_._2).take(maxPredictedTypes)
+    typesCounted.toSeq.filter(_._2 >= minShareScore).sortBy(-_._2).take(maxPredictedTypes)
   }
   
   def tryAttachTypes(types: Seq[Int])(reg: REG): REG = {
@@ -363,7 +366,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
     // (relation, RelInfo) pairs
     val relInfoPairs = relEntityGrouped flatMap { case (relString, relEntityStrings) => 
       val relEntities = relEntityStrings.iterator map EntityInfo.fromString
-      typer.getOptRelInfo(relEntities).map(relInfo => (relString, relInfo.toString))
+      typer.getOptRelInfo(relString, relEntities).map(relInfo => (relString, relInfo.toString))
     }
 
     
@@ -394,45 +397,45 @@ object UnlinkableEntityTyper extends ScoobiApp {
     }
     
     // (argument, REG w/ argument) pairs
-    val argRegPairs = regs map typer.argumentRegKv
+    //val argRegPairs = regs map typer.argumentRegKv
     
     // (argument, (Iterable[RelInfos for arg], Iterable[REG w/ arg]))
-    val argRelInfosArgRelRegsGrouped: DList[(String, (Iterable[String], Iterable[String]))] = Relational.coGroup(argRelInfoPairs, argRegPairs)
-
+    val argRelInfosGrouped: DList[(String, Iterable[String])] = argRelInfoPairs.groupByKey
+ 
     def getNotableRels(relInfos: Seq[RelInfo]): Seq[RelInfo] = {
       val descending = relInfos.sortBy(-_.weight)
       val best = descending.take(4)
-      val worst = descending.takeRight(4)
-      val combined = (best ++ worst)
-      val deduped = combined.toSet.iterator.toSeq
+      val deduped = best.toSet.iterator.toSeq
       val sorted = deduped.sortBy(-_.weight)
       sorted
     }
     
     // (REG)
-    val typedRegs = argRelInfosArgRelRegsGrouped flatMap { case (argString, (relInfoStrings, argRelRegStrings)) =>
-      val relInfos = relInfoStrings map RelInfo.fromString // debug: remove toSeq
-      //val notableRels = getNotableRels(relInfos) map(ri => "%s:%.04f".format(ri.relString, ri.weight)) // debug, deleteme
-      val topEntitiesForArg = typer.getTopEntitiesForArg(relInfos)
+    val typedRegs = argRelInfosGrouped flatMap { case (argString, relInfoStrings) =>
+      val relInfos = relInfoStrings map RelInfo.fromString take(maxRelInfosReadPerArg) toSeq
+      def notableRels = getNotableRels(relInfos) map(ri => "%s:%.02f".format(ri.string, ri.weight)) // debug, deleteme
+      val (topEntitiesForArg, totalEntityWeight) = typer.getTopEntitiesForArg(relInfos)
       val predictedTypes = typer.predictTypes(topEntitiesForArg)
       // now *try* to attach these predicted types to REGs (don't if REG is linked already)
       //val argRelRegs = argRelRegStrings flatMap typer.getOptReg
       // try to assign types to every REG in argRelRegs
       //argRelRegs map typer.tryAttachTypes(predictedTypes)
-      Seq((argString, predictedTypes, topEntitiesForArg.take(5).map(_.fbid)))
+      Seq((argString, predictedTypes, notableRels, totalEntityWeight, topEntitiesForArg.take(5).map(_.fbid))).filter(!_._2.isEmpty)
     }
     
     // (REG String)
     //val finalResult: DList[String] = typedRegs map ReVerbExtractionGroup.toTabDelimited
     
     // this entire method can be thrown away when done debugging
-    val finalResult: DList[String] = typedRegs map { case (argString, predictedTypes, topEntitiesForArg) =>
+    val finalResult: DList[String] = typedRegs map { case (argString, predictedTypes, notableRels, totalEntityWeight, topEntitiesForArg) =>
       val types = predictedTypes.flatMap { case (typeInt, numShared) =>
         TypeEnumUtils.typeEnumMap.get(typeInt).map(typeInfo => (typeInfo.typeString, numShared))
       }
-      val typesNumShared = types.map({ case (ts, num) => "%s@%d".format(ts, num) }).mkString(",")
+      val typesNumShared = types.map({ case (ts, num) => "%s@%d".format(ts, num) }).mkString(", ")
+      val notableRelsString = notableRels.mkString(", ")
+      val totalWeightString = "%.02f".format(totalEntityWeight)
       val entities = topEntitiesForArg.mkString(",")
-      Seq(argString, typesNumShared, entities).mkString("\t")
+      Seq(argString, typesNumShared, notableRelsString, totalWeightString, entities).mkString("\t")
     }
     
     persist(toTextFile(finalResult, outputPath + "/"))
