@@ -125,7 +125,7 @@ class UnlinkableEntityTyper(
   private val argStopList = Set("one", "two", "three", "four", "five", "some", "any", "all")
   private def filterArgString(str: String) = (str.length > 3) && (numPattern.findFirstIn(str) match {
     case Some(num) => false
-    case None => tabSplit.split(str).exists(tok => argStopList.contains(tok))
+    case None => !tabSplit.split(str).exists(tok => argStopList.contains(tok))
   })
   
   def getOptRelInfo(relString: String, relEntities: Iterator[EntityInfo]) = time(getOptRelInfoUntimed(relString, relEntities), Timers.incLoadRelInfoCount _)
