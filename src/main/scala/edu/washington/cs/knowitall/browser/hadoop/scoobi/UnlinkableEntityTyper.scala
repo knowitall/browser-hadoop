@@ -25,7 +25,8 @@ import scala.io.Source
 import UnlinkableEntityTyper.REG
 // Types are represented as Ints in some places to save space. An file defines an enumeration mapping them back to strings.
 
-sealed abstract class ArgField { 
+sealed abstract class ArgField {
+  def name: String
   def getArgNorm(reg: REG): String 
   def getTypeStrings(reg: REG): Set[String]
   def attachTypes(reg: REG, typeInts: Seq[Int]): REG
@@ -46,6 +47,7 @@ sealed abstract class ArgField {
 }
 
 case class Arg1() extends ArgField { 
+  override val name = "arg1"
   override def getArgNorm(reg: REG) = reg.arg1.norm 
   override def getTypeStrings(reg: REG) = reg.arg1.types map fbTypeToString filter TypeEnumUtils.typeFilter
   override def attachTypes(reg: REG, typeInts: Seq[Int]) = reg.copy(arg1 = reg.arg1.copy(types = typeInts flatMap intToFbType toSet))
@@ -54,6 +56,7 @@ case class Arg1() extends ArgField {
   }
 }
 case class Arg2() extends ArgField {
+  override val name = "arg2"
   override def getArgNorm(reg: REG) = reg.arg2.norm
   override def getTypeStrings(reg: REG) = reg.arg2.types map fbTypeToString filter TypeEnumUtils.typeFilter
   override def attachTypes(reg: REG, typeInts: Seq[Int]) = reg.copy(arg2 = reg.arg2.copy(types = typeInts flatMap intToFbType toSet))
@@ -457,19 +460,19 @@ object UnlinkableEntityTyper extends ScoobiApp {
     
     val finalResult: DList[String] = {
       if (onlyPhaseOne) {
-        this.configuration.jobNameIs("Unlinkable-Type-Prediction-PhaseOne")
+        this.configuration.jobNameIs("Unlinkable-Type-Prediction-PhaseOne-%s".format(argField.name))
         val argRelInfoPairs = phaseOne(input)
         argRelInfoPairs.map(pair => Seq(pair._1, pair._2).map(_.replaceAll("\t", "_TAB_")).mkString("\t"))
       } else if (onlyPhaseTwo) {
         // assume input is from phase one
-        this.configuration.jobNameIs("Unlinkable-Type-Prediction-PhaseTwo")
+        this.configuration.jobNameIs("Unlinkable-Type-Prediction-PhaseTwo-%s".format(argField.name))
         val argRelInfoPairs = input.map { line =>
           val split = tabSplit.split(line).take(2).map(_.replaceAll("_TAB_", "\t"))
           (split(0), split(1))
         }
         phaseTwo(argRelInfoPairs)
       } else {
-        this.configuration.jobNameIs("Unlinkable-Type-Prediction-Full")
+        this.configuration.jobNameIs("Unlinkable-Type-Prediction-Full-%s".format(argField.name))
         phaseTwo(phaseOne(input))
       }
     }
