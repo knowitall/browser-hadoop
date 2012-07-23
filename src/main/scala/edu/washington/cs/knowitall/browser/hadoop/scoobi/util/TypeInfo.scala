@@ -43,7 +43,7 @@ case class TypePrediction(
     val bestRelsString = bestRels map relPairToString mkString(", ")
     val weightString = "%.02f".format(totalEntityWeight)
     val fbidsString = topSimilarFbids.mkString(",")
-    Seq(typesString, bestRelsString, weightString, fbidsString).map(_.replaceAll("\t", "_TAB_")).mkString("\t")
+    Seq(argString, typesString, bestRelsString, weightString, fbidsString).map(_.replaceAll("\t", "_TAB_")).mkString("\t")
   }
 }
 
