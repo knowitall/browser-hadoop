@@ -41,7 +41,7 @@ object TypeAttacher extends ScoobiApp {
     }
     def argTypePair(typePred: TypePrediction) = {
       val argNorm = typePred.argString
-      val key = if (argNorm.length < UnlinkableEntityTyper.minArgLength) "%s%s".format(scala.util.Random.nextInt(50), argNorm) else argNorm
+      val key = if (argNorm.length < UnlinkableEntityTyper.minArgLength) "%s%s".format(scala.util.Random.nextInt(100), argNorm) else argNorm
       (key, typePred.toString)
     }
     // first step is to do a join to match REGs with their Option[TypePrediction]
@@ -74,7 +74,7 @@ object TypeAttacher extends ScoobiApp {
                 if (argField.getTypeStrings(newReg).isEmpty) System.err.println("Strange: %s\t%s".format(typePredString, regString))
                 ReVerbExtractionGroup.toTabDelimited(newReg)
               }
-              case None => regString
+              case None => ReVerbExtractionGroup.toTabDelimited(reg) // helps write out newer serialization
             }
           }
           case None => regString
