@@ -30,6 +30,8 @@ object TypeAttacher extends ScoobiApp {
 
     if (!parser.parse(args)) throw new IllegalArgumentException("Couldn't parse args")
 
+    this.configuration.jobNameIs("Type-Prediction-Attacher".format(argField.name))
+    
     def loadReg(str: String) = ReVerbExtractionGroup.fromTabDelimited(str.split("\t"))._1
     def argRegPair(reg: REG) = (argField.getArgNorm(reg), ReVerbExtractionGroup.toTabDelimited(reg))
     def argTypePair(typePred: TypePrediction) = (typePred.argString, typePred.toString)
