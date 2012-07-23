@@ -35,7 +35,7 @@ class UnlinkableEntityTyper(
     val maxEntitiesWritePerRel: Int,
     val maxRelInfosReadPerArg: Int) {
 
-  import UnlinkableEntityTyper.{ REG, allPairs, tabSplit }
+  import UnlinkableEntityTyper.{ REG, allPairs, tabSplit, minArgLength }
   import TypeInfoUtils.typeStringMap
   import scala.util.Random
   import edu.washington.cs.knowitall.browser.lucene.ExtractionGroupFetcher.entityStoplist
@@ -49,7 +49,7 @@ class UnlinkableEntityTyper(
   
   private val numPattern = "[0-9][0-9][0-9]+".r
   private val argStopList = Set("one", "two", "three", "four", "five", "some", "any", "all")
-  private def filterArgString(str: String) = (str.length > 3) && (numPattern.findFirstIn(str) match {
+  private def filterArgString(str: String) = (str.length >= minArgLength) && (numPattern.findFirstIn(str) match {
     case Some(num) => false
     case None => !tabSplit.split(str).exists(tok => argStopList.contains(tok))
   })
@@ -146,10 +146,6 @@ class UnlinkableEntityTyper(
     typesCounted.toSeq.filter(_._2 >= minShareScore).sortBy(-_._2).take(maxPredictedTypes)
   }
   
-  def tryAttachTypes(types: Seq[Int])(reg: REG): REG = {
-    if (argField.getTypeStrings(reg).isEmpty) argField.attachTypes(reg, types) else reg
-  }
-  
   object Timers {
     
     var argRelInfoCount = MutInt.zero
@@ -234,6 +230,8 @@ class UnlinkableEntityTyper(
 object UnlinkableEntityTyper extends ScoobiApp {
 
   val tabSplit = "\t".r
+  
+  val minArgLength = 4
 
   type REG = ExtractionGroup[ReVerbExtraction]
 

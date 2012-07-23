@@ -30,11 +30,20 @@ object TypeAttacher extends ScoobiApp {
 
     if (!parser.parse(args)) throw new IllegalArgumentException("Couldn't parse args")
 
-    this.configuration.jobNameIs("Type-Prediction-Attacher".format(argField.name))
+    this.configuration.jobNameIs("Type-Prediction-Attacher-%s".format(argField.name))
     
     def loadReg(str: String) = ReVerbExtractionGroup.fromTabDelimited(str.split("\t"))._1
-    def argRegPair(reg: REG) = (argField.getArgNorm(reg), ReVerbExtractionGroup.toTabDelimited(reg))
-    def argTypePair(typePred: TypePrediction) = (typePred.argString, typePred.toString)
+    def argRegPair(reg: REG) = {
+      val argNorm = argField.getArgNorm(reg)
+      // bust up arg groups that are too short anyways. This helps prevent huge groups in the reducer. 
+      val key = if (argNorm.length < UnlinkableEntityTyper.minArgLength) "%s%s".format(scala.util.Random.nextInt, argNorm) else argNorm
+      (key, ReVerbExtractionGroup.toTabDelimited(reg))
+    }
+    def argTypePair(typePred: TypePrediction) = {
+      val argNorm = typePred.argString
+      val key = if (argNorm.length < UnlinkableEntityTyper.minArgLength) "%s%s".format(scala.util.Random.nextInt(50), argNorm) else argNorm
+      (key, typePred.toString)
+    }
     // first step is to do a join to match REGs with their Option[TypePrediction]
     val argRegPairs = fromTextFile(regsPath) flatMap loadReg map argRegPair
     val argTypePredPairs = fromTextFile(argTypesPath) flatMap TypePrediction.fromString map argTypePair
