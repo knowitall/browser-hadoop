@@ -24,11 +24,11 @@ class ReVerbIndexModifierTest extends Suite {
   
   val numGroupsToTest = 1000
 
-  val rawInputLines: List[String] = Source.fromInputStream(ResourceUtils.loadResource("test-groups-5.txt", this.getClass()), "UTF-8").getLines.drop(1000).take(numGroupsToTest).toList
+  val rawInputLines: List[String] = Source.fromInputStream(ResourceUtils.loadResource("test-groups-5000.txt", this.getClass()), "UTF-8").getLines.drop(1000).take(numGroupsToTest).toList
 
-  val inputLines =  rawInputLines flatMap lineToOptGroup flatMap(_.reNormalize) map ReVerbExtractionGroup.toTabDelimited
+  val inputLines =  rawInputLines flatMap lineToOptGroup flatMap(_.reNormalize) map ReVerbExtractionGroup.serializeToString
   
-  private def lineToOptGroup(e: String) = ReVerbExtractionGroup.fromTabDelimited(e.split("\t"))._1
+  private def lineToOptGroup(e: String) = ReVerbExtractionGroup.deserializeFromString(e)
 
   val stemmer = new MorphaStemmer
   
@@ -85,11 +85,11 @@ class ReVerbIndexModifierTest extends Suite {
     val resultGroups = fetcher.getGroups(query)
     if (!resultGroups.results.toSet.contains(group)) {
       println(); println()
-      println("Expected (%d): %s".format(group.instances.size, ReVerbExtractionGroup.toTabDelimited(group)))
+      println("Expected (%d): %s".format(group.instances.size, ReVerbExtractionGroup.serializeToString(group)))
 
       println("Found: (%d, %d)".format(resultGroups.numGroups, resultGroups.numInstances))
       resultGroups.results.foreach { resultGroup =>
-        println(ReVerbExtractionGroup.toTabDelimited(resultGroup))
+        println(ReVerbExtractionGroup.serializeToString(resultGroup))
       }
       fail()
     }

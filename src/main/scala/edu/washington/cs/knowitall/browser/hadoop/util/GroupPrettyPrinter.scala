@@ -38,7 +38,7 @@ object GroupPrettyPrinter {
     
     println(tabHeaders)
     
-    Source.fromInputStream(System.in).getLines.flatMap({ line => ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1}).foreach { group =>
+    Source.fromInputStream(System.in).getLines flatMap ReVerbExtractionGroup.deserializeFromString foreach { group =>
       val pretty = getPrettyGroup(group)
       println(pretty)
     }

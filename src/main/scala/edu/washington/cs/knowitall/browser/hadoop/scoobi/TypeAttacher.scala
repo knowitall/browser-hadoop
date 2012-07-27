@@ -32,12 +32,12 @@ object TypeAttacher extends ScoobiApp {
 
     this.configuration.jobNameIs("Type-Prediction-Attacher-%s".format(argField.name))
     
-    def loadReg(str: String) = ReVerbExtractionGroup.fromTabDelimited(str.split("\t"))._1
+    def loadReg(str: String) = ReVerbExtractionGroup.deserializeFromString(str)
     def argRegPair(reg: REG) = {
       val argNorm = argField.getArgNorm(reg)
       // bust up arg groups that are too short anyways. This helps prevent huge groups in the reducer. 
       val key = if (argNorm.length < UnlinkableEntityTyper.minArgLength) "%s%s".format(scala.util.Random.nextInt, argNorm) else argNorm
-      (key, ReVerbExtractionGroup.toTabDelimited(reg))
+      (key, ReVerbExtractionGroup.serializeToString(reg))
     }
     def argTypePair(typePred: TypePrediction) = {
       val argNorm = typePred.argString
@@ -66,15 +66,15 @@ object TypeAttacher extends ScoobiApp {
         numArgs += 1
         optTypePred match {
           case Some(typePredString) => {
-            lazy val reg = ReVerbExtractionGroup.fromTabDelimited(regString.split("\t"))._1.get
+            lazy val reg = ReVerbExtractionGroup.deserializeFromString(regString).get
             TypePrediction.fromString(typePredString) match {
               case Some(typePred) => {
                 val newReg = tryAttachType(reg, typePred)
                 if (argField.getTypeStrings(reg).isEmpty) numTypesAttached += 1 else numAlreadyTyped += 1
                 if (argField.getTypeStrings(newReg).isEmpty) System.err.println("Strange: %s\t%s".format(typePredString, regString))
-                ReVerbExtractionGroup.toTabDelimited(newReg)
+                ReVerbExtractionGroup.serializeToString(newReg)
               }
-              case None => ReVerbExtractionGroup.toTabDelimited(reg) // helps write out newer serialization
+              case None => ReVerbExtractionGroup.serializeToString(reg) // helps write out newer serialization
             }
           }
           case None => regString

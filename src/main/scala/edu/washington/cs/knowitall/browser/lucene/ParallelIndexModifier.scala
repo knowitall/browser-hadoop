@@ -100,7 +100,7 @@ object ParallelReVerbIndexModifier {
     
     val lines = Source.fromInputStream(System.in).getLines
     
-    val groups = lines map { _.split("\t").toSeq } map ReVerbExtractionGroup.fromTabDelimited flatMap(_._1)
+    val groups = lines flatMap ReVerbExtractionGroup.deserializeFromString
     
     parModifier.updateAll(groups)
 

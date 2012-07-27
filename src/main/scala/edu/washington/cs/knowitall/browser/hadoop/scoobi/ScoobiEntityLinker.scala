@@ -183,11 +183,11 @@ object ScoobiEntityLinker extends ScoobiApp {
         System.err.println(format.format(minFreq, maxFreq, counter.count, linker.groupsProcessed, linker.arg1sLinked, linker.arg2sLinked))
       }
 
-      val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
+      val extrOp = ReVerbExtractionGroup.deserializeFromString(line)
       extrOp match {
         case Some(extr) => {
           if (extr.instances.size <= maxFreq && extr.instances.size >= minFreq) {
-            Some(ReVerbExtractionGroup.toTabDelimited(linker.linkEntities(reuseLinks = true)(extr)))
+            Some(ReVerbExtractionGroup.serializeToString(linker.linkEntities(reuseLinks = true)(extr)))
           } else {
             None
           }
@@ -210,12 +210,12 @@ object ScoobiEntityLinker extends ScoobiApp {
         System.err.println(format.format(minFreq, maxFreq, counter.count, groupsOutput))
       }
 
-      val extrOp = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1
+      val extrOp = ReVerbExtractionGroup.deserializeFromString(line)
       extrOp match {
         case Some(extr) => {
           if (extr.instances.size <= maxFreq && extr.instances.size >= minFreq) {
             groupsOutput += 1
-            Some(ReVerbExtractionGroup.toTabDelimited(extr))
+            Some(ReVerbExtractionGroup.serializeToString(extr))
           } else {
             None
           }

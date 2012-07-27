@@ -95,7 +95,7 @@ object OldRvConverter {
       case Seq(arg1Range, relRange, arg2Range) => {
         val extr = buildExtraction(arg1Range, relRange, arg2Range, sentence.get, sourceUrl)
         extr match {
-          case Some(e) => Some(ReVerbExtraction.toTabDelimited(e))
+          case Some(e) => Some(ReVerbExtraction.serializeToString(e))
           case None => lineFailure
         }
       }

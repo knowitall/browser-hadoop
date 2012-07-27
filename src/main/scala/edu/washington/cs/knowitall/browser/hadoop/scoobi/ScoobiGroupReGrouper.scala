@@ -39,7 +39,7 @@ object ScoobiGroupReGrouper extends ScoobiApp {
     
     val reGroups = confedGroups.map { group => getKeyValuePair(group) }.groupByKey
     
-    val combinedGroups = reGroups.map(keyValues => ReVerbExtractionGroup.toTabDelimited(combineGroups(keyValues._1, keyValues._2)))
+    val combinedGroups = reGroups.map(keyValues => ReVerbExtractionGroup.serializeToString(combineGroups(keyValues._1, keyValues._2)))
 
     persist(TextOutput.toTextFile(combinedGroups, outputPath + "/"));
   }
@@ -47,7 +47,7 @@ object ScoobiGroupReGrouper extends ScoobiApp {
   def combineGroups(key: String, groups: Iterable[String]): ExtractionGroup[ReVerbExtraction] = {
     
     
-    val parsedGroups = groups.flatMap(str => ReVerbExtractionGroup.fromTabDelimited(str.split("\t"))._1)
+    val parsedGroups = groups.flatMap(str => ReVerbExtractionGroup.deserializeFromString(str))
     
     val allInstances = parsedGroups.flatMap { group =>
         val keyCheck = getKeyValuePair(group)._1
@@ -75,13 +75,13 @@ object ScoobiGroupReGrouper extends ScoobiApp {
     extrsProcessed += 1
     if (extrsProcessed % 20000 == 0) System.err.println("Extractions processed: %d".format(extrsProcessed))
 
-    (group.instances.head.extraction.indexGroupingKeyString, ReVerbExtractionGroup.toTabDelimited(group))
+    (group.instances.head.extraction.indexGroupingKeyString, ReVerbExtractionGroup.serializeToString(group))
   }
 
   def groupMapProcessor(line: String): Option[ExtractionGroup[ReVerbExtraction]] = {
 
     // try to parse the line into a group
-    val group = ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1.getOrElse { return None }
+    val group = ReVerbExtractionGroup.deserializeFromString(line).getOrElse { return None }
 
     // go through and assign confs to any extractions without them
     val confedInstances = group.instances.map { inst => if (inst.confidence < 0) tryAddConf(inst) else inst }

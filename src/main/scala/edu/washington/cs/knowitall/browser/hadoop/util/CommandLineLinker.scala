@@ -22,7 +22,7 @@ class CommandLineLinker(val source: Source, val output: PrintStream) {
   def linkData: Unit = {
     
     def toGroups(line: String): Option[REG] = {
-      ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(line))._1
+      ReVerbExtractionGroup.deserializeFromString(line)
     }
     
     var groupsProcessed = 0
@@ -32,7 +32,7 @@ class CommandLineLinker(val source: Source, val output: PrintStream) {
       // convert input lines to REGs
       val groups = source.getLines flatMap(line=>{groupsProcessed += 1; toGroups(line)})
       val linkedGroups = groups map linker.linkEntities(reuseLinks = false)
-      val strings = linkedGroups map ReVerbExtractionGroup.toTabDelimited
+      val strings = linkedGroups map ReVerbExtractionGroup.serializeToString
       strings foreach(output.println(_))
     }
     

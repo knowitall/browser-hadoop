@@ -36,10 +36,7 @@ object ScoobiInlinkRatioComputer extends ScoobiApp {
     val lines: DList[String] = TextInput.fromTextFile(inputPath)
 
     val groups = lines.flatMap { line =>
-      ReVerbExtractionGroup.fromTabDelimited(line.split("\t"))._1 match {
-        case Some(extrGroup) => Some((extrGroup, line))
-        case None => None
-      }
+      ReVerbExtractionGroup.deserializeFromString(line).map { extrGroup => (extrGroup, line) }
     }
 
     val argKeyValuePairs = groups.map {
@@ -72,7 +69,7 @@ object ScoobiInlinkRatioComputer extends ScoobiApp {
   def processReducerGroup(arg1: Boolean, rawExtrGroups: Iterable[String]): String = {
     
     val rawProcGroup = rawExtrGroups.head
-    val procGroup = ReVerbExtractionGroup.fromTabDelimited(rawProcGroup.split("\t"))._1.get
+    val procGroup = ReVerbExtractionGroup.deserializeFromString(rawProcGroup).get
     val procEntity = if (arg1) procGroup.arg1.entity.get else procGroup.arg2.entity.get
     def size = rawExtrGroups.size
     val inlinks = procEntity.inlinkRatio

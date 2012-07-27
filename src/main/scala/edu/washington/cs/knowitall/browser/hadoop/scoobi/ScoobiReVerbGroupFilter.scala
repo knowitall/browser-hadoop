@@ -32,8 +32,8 @@ object ScoobiReVerbGroupFilter extends ScoobiApp {
     
     // serialized ExtractionGroup[ReVerbExtraction]
     val filtered: DList[String] = groups.flatMap  { group => 
-      val parsed = ReVerbExtractionGroup.fromTabDelimited(group.split("\t"))._1
-      val apply = BadQuery.applyFilterForIndex(parsed) map ReVerbExtractionGroup.toTabDelimited
+      val parsed = ReVerbExtractionGroup.deserializeFromString(group)
+      val apply = BadQuery.applyFilterForIndex(parsed) map ReVerbExtractionGroup.serializeToString
       apply
     }
     

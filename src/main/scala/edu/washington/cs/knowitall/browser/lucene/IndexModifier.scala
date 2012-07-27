@@ -96,7 +96,7 @@ class ReVerbIndexModifier(
     }
 
     val document = ReVerbDocumentConverter.toDocument(linkedGroup)
-    println("Adding: " + ReVerbExtractionGroup.toTabDelimited(group))
+    println("Adding: " + ReVerbExtractionGroup.serializeToString(group))
 
     writer.addDocument(document)
   }

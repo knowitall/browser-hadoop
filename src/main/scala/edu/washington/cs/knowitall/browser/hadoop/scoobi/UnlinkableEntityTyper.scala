@@ -41,7 +41,7 @@ class UnlinkableEntityTyper(
   import edu.washington.cs.knowitall.browser.lucene.ExtractionGroupFetcher.entityStoplist
 
   def getOptReg(regString: String) = time(getOptRegUntimed(regString), Timers.incParseRegCount _)
-  def getOptRegUntimed(regString: String): Option[REG] = ReVerbExtractionGroup.fromTabDelimited(tabSplit.split(regString))._1
+  def getOptRegUntimed(regString: String): Option[REG] = ReVerbExtractionGroup.deserializeFromString(regString)
 
   var numRelInfosOutput = 0
   var numRelInfosSkipped = 0

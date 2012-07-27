@@ -99,7 +99,7 @@ object ScoobiReVerb extends ScoobiApp {
       tabSplit.split(line) match {
         case Array(strs, poss, chks, url, _*) => {
           val rvExtrs = getBrowserExtractions(split(strs), split(poss), split(chks), url)
-          rvExtrs map ReVerbExtraction.toTabDelimited
+          rvExtrs map ReVerbExtraction.serializeToString
         }
         case _ => { 
           System.err.println("Couldn't parse line: %s".format(line))

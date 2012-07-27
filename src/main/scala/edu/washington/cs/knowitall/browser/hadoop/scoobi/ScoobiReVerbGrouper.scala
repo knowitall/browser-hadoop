@@ -43,7 +43,7 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
     if (extrsProcessed % 20000 == 0) System.err.println("Extractions processed: %d".format(extrsProcessed))
 
     // parse the line to a ReVerbExtraction
-    val extrOpt = ReVerbExtraction.fromTabDelimited(line.split("\t"))._1
+    val extrOpt = ReVerbExtraction.deserializeFromString(line)
 
     extrOpt match {
       case Some(extr) => {
@@ -61,7 +61,7 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
     groupsProcessed += 1
     if (groupsProcessed % 10000 == 0) System.err.println("Groups processed: %d, current key: %s, largest group: %d".format(groupsProcessed, key, largestGroup))
 
-    val extrs = rawExtrsTruncated.flatMap(line => ReVerbExtraction.fromTabDelimited(line.split("\t"))._1)
+    val extrs = rawExtrsTruncated.flatMap(line => ReVerbExtraction.deserializeFromString(line))
 
     val head = extrs.head
 
@@ -120,7 +120,7 @@ object ScoobiReVerbGrouper extends ScoobiApp {
         val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.threadLocalInstance, corpus))
         grouper.processGroup(key, sources) match {
 
-          case Some(group) => Some(ReVerbExtractionGroup.toTabDelimited(group))
+          case Some(group) => Some(ReVerbExtractionGroup.serializeToString(group))
           case None => None
         }
     }
