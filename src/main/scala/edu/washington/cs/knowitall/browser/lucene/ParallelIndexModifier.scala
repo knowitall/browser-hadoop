@@ -1,7 +1,12 @@
 package edu.washington.cs.knowitall.browser.lucene
 
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.ScoobiEntityLinker
+import edu.washington.cs.knowitall.browser.hadoop.scoobi.ScoobiGroupReGrouper
 
+import edu.washington.cs.knowitall.browser.extraction.ExtractionArgument
+import edu.washington.cs.knowitall.browser.extraction.ExtractionRelation
+import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
+import edu.washington.cs.knowitall.browser.extraction.Instance
 import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
@@ -79,9 +84,12 @@ object ParallelReVerbIndexModifier {
   def main(args: Array[String]): Unit = {
 
     var indexPaths: Seq[String] = Nil
+    var inputGroups = false
+    var corpus = ""
 
     val optionParser = new OptionParser() {
       arg("indexPaths", "Colon-delimited list of paths to indexes", { str => indexPaths = str.split(":") })
+      arg("corpus", "The corpus identifier to use, e.g. news", { str => corpus = str})
       opt("linesPerCommit", "Lines added across all indexes between commits", { str => linesPerCommit = str.toInt })
     }
 
@@ -100,7 +108,17 @@ object ParallelReVerbIndexModifier {
     
     val lines = Source.fromInputStream(System.in).getLines
     
-    val groups = lines flatMap ReVerbExtractionGroup.deserializeFromString
+    val groups = lines flatMap ReVerbExtraction.deserializeFromString map { extr => 
+      val key = extr.indexGroupingKey
+      val tempInstance = new Instance[ReVerbExtraction](extr, corpus, -1.0)
+      val confInstance = ScoobiGroupReGrouper.tryAddConf(tempInstance)
+      new ExtractionGroup[ReVerbExtraction](
+        new ExtractionArgument(key._1, None, Set.empty),
+        new ExtractionRelation(key._2),
+        new ExtractionArgument(key._3, None, Set.empty),
+        Set(confInstance)
+      )
+    }
     
     parModifier.updateAll(groups)
 
