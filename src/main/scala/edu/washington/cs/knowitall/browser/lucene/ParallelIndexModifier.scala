@@ -101,7 +101,6 @@ object ParallelReVerbIndexModifier {
       indexWriter
     }
 
-    
     val basicModifiers = indexWriters.map(new ReVerbIndexModifier(_, Some(localLinker.get), ramBufferMb, linesPerCommit))
 
     val parModifier = new ParallelReVerbIndexModifier(basicModifiers, linesPerCommit)
