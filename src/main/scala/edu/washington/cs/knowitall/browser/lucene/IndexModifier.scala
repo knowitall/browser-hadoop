@@ -16,6 +16,8 @@ abstract class IndexModifier {
   def updateAll(groups: Iterator[ExtractionGroup[ReVerbExtraction]]): Unit
   
   def fetcher: GroupFetcher
+  
+  def close(): Unit
 }
 
 /**
@@ -36,18 +38,13 @@ class ReVerbIndexModifier(
   val searcher = fetcher.indexSearcher
   val reader = fetcher.indexSearcher.getIndexReader
   
-  
-
-
   /**
     * Updates group to the index. Returns true if the index was modified.
     * User can specify to only add if the group is already in the index
     * (will be useful for parallel indexes)
     */
   protected[lucene] def updateGroup(group: REG, onlyIfAlreadyExists: Boolean): Boolean = {
-    
-    
-    
+
     val querySpec = QuerySpec.identityQuery(group)
     
     val queryGroups = fetcher.getGroups(querySpec) match {
@@ -112,5 +109,9 @@ class ReVerbIndexModifier(
       System.err.println("Groups inserted: %d Index MaxDoc: %d".format(groupsProcessed, writer.maxDoc))
       
     }
+  }
+  
+  def close(): Unit = {
+    writer.close
   }
 }

@@ -22,6 +22,12 @@ import scala.io.Source
 
 class ParallelReVerbIndexModifier(val basicModifiers: Seq[ReVerbIndexModifier], groupsPerCommit: Int) extends IndexModifier {
 
+  import ParallelReVerbIndexModifier.loadSubModifier
+  
+  def this(indexPaths: Seq[String], ramBufferMb: Int, linesPerCommit: Int) = {
+    this(indexPaths map ParallelReVerbIndexModifier.loadSubModifier(linesPerCommit, ramBufferMb), linesPerCommit)
+  }
+  
   def fetcher = new ParallelExtractionGroupFetcher(basicModifiers.map(_.fetcher))
 
   private def updateGroup(group: REG): Boolean = {
@@ -38,10 +44,9 @@ class ParallelReVerbIndexModifier(val basicModifiers: Seq[ReVerbIndexModifier], 
     } exists (_ == true)
 
     exception match {
-      case Some(e) => throw e // epic hacks... to avoid parallel exception handling
+      case Some(e) => throw e
       case None => updated
     }
-    
   }
   
   private def addToRandomGroup(group: REG): Unit = {
@@ -63,7 +68,6 @@ class ParallelReVerbIndexModifier(val basicModifiers: Seq[ReVerbIndexModifier], 
         } catch {
           case e: Exception => { exceptions += 1; e.printStackTrace }
         }
-        
       }
       
       groupsProcessed += groupOfGroups.size
@@ -71,18 +75,28 @@ class ParallelReVerbIndexModifier(val basicModifiers: Seq[ReVerbIndexModifier], 
       System.err.println("Groups inserted: %d, Exceptions: %d".format(groupsProcessed, exceptions))
     }
   }
+  
+  def close(): Unit = {
+    basicModifiers.foreach { _.close() }
+  }
 }
 
 object ParallelReVerbIndexModifier {
   
-  var linesPerCommit = 50000
-  var ramBufferMb = 250 
+  def loadSubModifier(linesPerCommit: Int, ramBufferMb: Int)(indexPath: String): ReVerbIndexModifier = {
+    val indexWriter = new IndexWriter(FSDirectory.open(new File(indexPath)), ReVerbIndexBuilder.indexWriterConfig(ramBufferMb))
+    new ReVerbIndexModifier(indexWriter, Some(localLinker.get), ramBufferMb, linesPerCommit)
+  }
+
   val tabSplitter = "\t".r
 
   val localLinker = new ThreadLocal[ScoobiEntityLinker]() { override def initialValue = ScoobiEntityLinker.getEntityLinker }
   
   def main(args: Array[String]): Unit = {
 
+    var linesPerCommit = 50000
+    var ramBufferMb = 250 
+    
     var indexPaths: Seq[String] = Nil
     var inputGroups = false
     var corpus = ""
@@ -96,14 +110,7 @@ object ParallelReVerbIndexModifier {
     // bail if the args are bad
     if (!optionParser.parse(args)) return
 
-    val indexWriters = indexPaths.map { indexPath =>
-      val indexWriter = new IndexWriter(FSDirectory.open(new File(indexPath)), ReVerbIndexBuilder.indexWriterConfig(ramBufferMb))
-      indexWriter
-    }
-
-    val basicModifiers = indexWriters.map(new ReVerbIndexModifier(_, Some(localLinker.get), ramBufferMb, linesPerCommit))
-
-    val parModifier = new ParallelReVerbIndexModifier(basicModifiers, linesPerCommit)
+    val parModifier = new ParallelReVerbIndexModifier(indexPaths, ramBufferMb, linesPerCommit)
     
     val lines = Source.fromInputStream(System.in).getLines
     
@@ -121,7 +128,7 @@ object ParallelReVerbIndexModifier {
     
     parModifier.updateAll(groups)
 
-    indexWriters foreach(_.close)
+    parModifier.close
     
     System.err.println("End of file - normal termination")
   }

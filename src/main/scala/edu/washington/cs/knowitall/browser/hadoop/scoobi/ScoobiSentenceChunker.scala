@@ -21,7 +21,6 @@ object ScoobiSentenceChunker extends ScoobiApp {
   
   lazy val chunker = new OpenNlpChunker
   
-  
   def run(): Unit = {
 
     var inputPath, outputPath = ""
@@ -53,8 +52,6 @@ object ScoobiSentenceChunker extends ScoobiApp {
         }
         case _ => None
       }
-      
-      
     }
     
     persist(TextOutput.toTextFile(output, outputPath + "/"));
