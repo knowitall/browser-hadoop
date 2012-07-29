@@ -88,7 +88,7 @@ class Ingester(
   def run: Unit = {
     val filesToIngest = filesNotInHadoop.iterator.toSeq
     printErr("Ingesting %d files".format(filesToIngest.size))
-    filesToIngest map { case (name, file) => 
+    filesToIngest foreach { case (name, file) => 
       printErr("Ingesting %s into HDFS".format(name))
       val hadoopFile = ingestFileToHdfs(file)
       printErr("Ingesting %s into index".format(name))
