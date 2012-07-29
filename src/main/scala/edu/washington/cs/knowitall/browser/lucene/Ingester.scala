@@ -6,6 +6,8 @@ import java.io.FileInputStream
 import edu.washington.cs.knowitall.common.Resource.using
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 
+import edu.washington.cs.knowitall.tool.tokenize.OpenNlpTokenizer
+
 /**
  * Examines the differences between the files in a local dir and an hdfs dir. Files not in
  * the hdfs dir are both added to the hdfs dir, and also sent to ParallelReVerbIndexModifier
@@ -19,6 +21,7 @@ class Ingester(
     val sshIdentityKeyFile: String,
     val corpus: String) {
   
+  import HackUtil.fixReVerbString
   import Ingester.printErr
   import ParallelReVerbIndexModifier.extrToSingletonGroup
   
@@ -41,8 +44,7 @@ class Ingester(
         case _ => None
       }
     }
-    // now convert long paths like "/user/rbart/.../.../somefile" to just "somefile"
-    
+
     fullPathNames map stripPathAndExt toSet
   }
   
@@ -55,14 +57,20 @@ class Ingester(
   
   private def filesNotInHadoop: Map[String, File] = filesInLocalDir -- filesInHadoopDir
   
+  private def extrFilter(extr: ReVerbExtraction): Boolean = {
+    try {
+      printErr("(%s) %s".format(extr.indexGroupingKeyString, extr.toString))
+      true
+    } catch {
+      case e: Exception => { e.printStackTrace; false }
+    }
+  }
+  
   private def ingestHdfsToIndex(hdfsFile: String): Unit = {
     val hdfsCmd = "hadoop dfs -cat %s".format(hdfsFile)
     printErr("Executing command: %s".format(hdfsCmd))
     val extrs = (Process(hdfsCmd) #| Process("lzop -cd")).lines.iterator flatMap ReVerbExtraction.deserializeFromString
-    val groups = extrs map { extr =>
-      printErr("(%s) %s".format(extr.indexGroupingKeyString, extr.toString))
-      extrToSingletonGroup(corpus)(extr)
-    }
+    val groups = extrs filter extrFilter map extrToSingletonGroup(corpus)
     indexModifier.updateAll(extrs map extrToSingletonGroup(corpus))
   }
   
@@ -137,4 +145,23 @@ object Ingester {
     
     indexModifier.close
   }
+}
+
+
+object HackUtil {
+  
+  val tokenizerLocal = new ThreadLocal[OpenNlpTokenizer]() { override def initialValue = new OpenNlpTokenizer }
+  def tokenizer = tokenizerLocal.get
+  
+  // We get the raw sentence instead of the sentence tokens, so currently we basically still have to re-tokenize.
+  def fixReVerbString(line: String): Option[String] = line.split("\t") match {
+    case Array(arg1, rel, arg2, sent, postags, chunks, srcUrl, _*) => {
+      val tokens = tokenizer.tokenize(sent)
+      val newSent = tokens.map(_.string).mkString(" ")
+      val putBackTogether = Seq(arg1, rel, arg2, tokens, postags, chunks, srcUrl).mkString("\t")
+      Some(putBackTogether)
+    }
+    case _ => None
+  }
+
 }
