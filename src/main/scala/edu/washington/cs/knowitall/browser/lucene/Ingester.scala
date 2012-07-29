@@ -103,7 +103,17 @@ object Ingester {
   private def printErr(line: String): Unit = System.err.println(line)
   
   def main(args: Array[String]): Unit = {
-    
+
+    {
+      val logger: org.slf4j.Logger =
+        org.slf4j.LoggerFactory.getLogger("test.package");
+      if ((logger.isInstanceOf[ch.qos.logback.classic.Logger])) {
+        val logbackLogger:ch.qos.logback.classic.Logger =
+          logger.asInstanceOf[ch.qos.logback.classic.Logger]
+        logbackLogger.setLevel(ch.qos.logback.classic.Level.DEBUG)
+      }
+    }    
+
     var indexPaths: Seq[String] = Nil
     var ramBufferMb: Int = 500
     var linesPerCommit: Int = 25000
