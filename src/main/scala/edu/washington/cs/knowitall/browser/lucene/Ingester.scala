@@ -47,7 +47,7 @@ class Ingester(
   private def filesInLocalDir: Map[String, File] = {
     
     val cmd = "ssh -i %s %s ls -1 %s".format(sshIdentityKeyFile, localDirHost, localDir)
-    
+    printErr("Executing command: %s".format(cmd))
     Process(cmd).lines map { fileName => (stripPathAndExt(fileName), new File(fileName)) } toMap
   }
   
@@ -55,6 +55,7 @@ class Ingester(
   
   private def ingestHdfsToIndex(hdfsFile: String): Unit = {
     val hdfsCmd = "hadoop dfs -cat %s".format(hdfsFile)
+    printErr("Executing command: %s".format(hdfsCmd))
     val extrGroups = Process(hdfsCmd).lines.iterator flatMap ReVerbExtractionGroup.deserializeFromString
     indexModifier.updateAll(extrGroups)
   }
