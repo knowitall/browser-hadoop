@@ -94,7 +94,7 @@ object ParallelReVerbIndexModifier {
   
   def main(args: Array[String]): Unit = {
 
-    var linesPerCommit = 50000
+    var linesPerCommit = 25000
     var ramBufferMb = 250 
     
     var indexPaths: Seq[String] = Nil
