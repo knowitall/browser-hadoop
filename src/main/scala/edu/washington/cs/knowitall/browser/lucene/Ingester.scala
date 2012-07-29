@@ -21,7 +21,6 @@ class Ingester(
     val sshIdentityKeyFile: String,
     val corpus: String) {
   
-  import HackUtil.fixReVerbString
   import Ingester.printErr
   import ParallelReVerbIndexModifier.extrToSingletonGroup
   
@@ -145,23 +144,4 @@ object Ingester {
     
     indexModifier.close
   }
-}
-
-
-object HackUtil {
-  
-  val tokenizerLocal = new ThreadLocal[OpenNlpTokenizer]() { override def initialValue = new OpenNlpTokenizer }
-  def tokenizer = tokenizerLocal.get
-  
-  // We get the raw sentence instead of the sentence tokens, so currently we basically still have to re-tokenize.
-  def fixReVerbString(line: String): Option[String] = line.split("\t") match {
-    case Array(arg1, rel, arg2, sent, postags, chunks, srcUrl, _*) => {
-      val tokens = tokenizer.tokenize(sent)
-      val newSent = tokens.map(_.string).mkString(" ")
-      val putBackTogether = Seq(arg1, rel, arg2, tokens, postags, chunks, srcUrl).mkString("\t")
-      Some(putBackTogether)
-    }
-    case _ => None
-  }
-
 }
