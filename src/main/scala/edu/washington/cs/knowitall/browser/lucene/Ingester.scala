@@ -59,6 +59,10 @@ class Ingester(
     val hdfsCmd = "hadoop dfs -cat %s".format(hdfsFile)
     printErr("Executing command: %s".format(hdfsCmd))
     val extrs = (Process(hdfsCmd) #| Process("lzop -cd")).lines.iterator flatMap ReVerbExtraction.deserializeFromString
+    val groups = extrs map { extr =>
+      printErr("(%s) %s".format(extr.indexGroupingKeyString, extr.toString))
+      extrToSingletonGroup(corpus)(extr)
+    }
     indexModifier.updateAll(extrs map extrToSingletonGroup(corpus))
   }
   
