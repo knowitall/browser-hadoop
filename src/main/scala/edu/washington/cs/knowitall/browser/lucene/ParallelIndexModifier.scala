@@ -88,6 +88,17 @@ object ParallelReVerbIndexModifier {
     new ReVerbIndexModifier(indexWriter, Some(localLinker.get), ramBufferMb, linesPerCommit)
   }
 
+  def extrToSingletonGroup(corpus: String)(extr: ReVerbExtraction): ExtractionGroup[ReVerbExtraction] = {
+    val key = extr.indexGroupingKey
+    val tempInstance = new Instance[ReVerbExtraction](extr, corpus, -1.0)
+    val confInstance = ScoobiGroupReGrouper.tryAddConf(tempInstance)
+    new ExtractionGroup[ReVerbExtraction](
+      new ExtractionArgument(key._1, None, Set.empty),
+      new ExtractionRelation(key._2),
+      new ExtractionArgument(key._3, None, Set.empty),
+      Set(confInstance))
+  }
+
   val tabSplitter = "\t".r
 
   val localLinker = new ThreadLocal[ScoobiEntityLinker]() { override def initialValue = ScoobiEntityLinker.getEntityLinker }
@@ -114,17 +125,7 @@ object ParallelReVerbIndexModifier {
     
     val lines = Source.fromInputStream(System.in).getLines
     
-    val groups = lines flatMap ReVerbExtraction.deserializeFromString map { extr => 
-      val key = extr.indexGroupingKey
-      val tempInstance = new Instance[ReVerbExtraction](extr, corpus, -1.0)
-      val confInstance = ScoobiGroupReGrouper.tryAddConf(tempInstance)
-      new ExtractionGroup[ReVerbExtraction](
-        new ExtractionArgument(key._1, None, Set.empty),
-        new ExtractionRelation(key._2),
-        new ExtractionArgument(key._3, None, Set.empty),
-        Set(confInstance)
-      )
-    }
+    val groups = lines flatMap ReVerbExtraction.deserializeFromString map extrToSingletonGroup(corpus)
     
     parModifier.updateAll(groups)
 

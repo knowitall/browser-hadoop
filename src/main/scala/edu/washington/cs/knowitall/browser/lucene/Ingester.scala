@@ -4,7 +4,7 @@ import scala.sys.process._
 import java.io.File
 import java.io.FileInputStream
 import edu.washington.cs.knowitall.common.Resource.using
-import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
+import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 
 /**
  * Examines the differences between the files in a local dir and an hdfs dir. Files not in
@@ -16,9 +16,11 @@ class Ingester(
     val hadoopDir: String, 
     val localDir: String, 
     val localDirHost: String, 
-    val sshIdentityKeyFile: String) {
+    val sshIdentityKeyFile: String,
+    val corpus: String) {
   
   import Ingester.printErr
+  import ParallelReVerbIndexModifier.extrToSingletonGroup
   
   private val whiteSpaceRegex = "\\s+".r
   
@@ -56,8 +58,8 @@ class Ingester(
   private def ingestHdfsToIndex(hdfsFile: String): Unit = {
     val hdfsCmd = "hadoop dfs -cat %s".format(hdfsFile)
     printErr("Executing command: %s".format(hdfsCmd))
-    val extrGroups = (Process(hdfsCmd) #| Process("lzop -cd")).lines.iterator flatMap ReVerbExtractionGroup.deserializeFromString
-    indexModifier.updateAll(extrGroups)
+    val extrs = (Process(hdfsCmd) #| Process("lzop -cd")).lines.iterator flatMap ReVerbExtraction.deserializeFromString
+    indexModifier.updateAll(extrs map extrToSingletonGroup(corpus))
   }
   
   private def ingestFileToHdfs(file: File): String = {
@@ -95,6 +97,7 @@ object Ingester {
     var localDir: String = ""
     var localDirHost: String = "" 
     var sshIdentityKeyFile: String = ""
+    var corpus: String = ""
       
     val parser = new scopt.OptionParser() {
       arg("indexPaths", "Path to parallel lucene indexes, colon separated", { str => indexPaths = str.split(":") })
@@ -103,6 +106,7 @@ object Ingester {
       arg("localDir", "directory on localDirHost where JSON data is located", { localDir = _ })
       arg("hadoopDir", "hdfs directory for converted reverb data", { hadoopDir = _ })
       arg("sshKey", "ssh identity to use for ssh-ing to localDirHost", { sshIdentityKeyFile = _ })
+      arg("corpus", "corpus identifier to attach to new data in the index", { corpus = _ })
       intOpt("ramBufferMb", "ramBuffer in MB per index", { ramBufferMb = _ })
       intOpt("linesPerCommit", "num lines between index commits", { linesPerCommit = _ })
     }
@@ -121,7 +125,8 @@ object Ingester {
       hadoopDir=hadoopDir,
       localDir=localDir,
       localDirHost=localDirHost,
-      sshIdentityKeyFile=sshIdentityKeyFile
+      sshIdentityKeyFile=sshIdentityKeyFile,
+      corpus=corpus
     )
     
     ingester.run
