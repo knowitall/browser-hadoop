@@ -4,6 +4,7 @@ import scala.sys.process._
 import java.io.File
 import java.io.FileInputStream
 import edu.washington.cs.knowitall.common.Resource.using
+import edu.washington.cs.knowitall.common.Timing
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 
 import edu.washington.cs.knowitall.tool.tokenize.OpenNlpTokenizer
@@ -140,8 +141,10 @@ object Ingester {
       corpus=corpus
     )
     
-    ingester.run
-    
-    indexModifier.close
+    val nsRuntime = Timing.time {
+      ingester.run
+      indexModifier.close
+    }
+    println("Run time: %s".format(Timing.Seconds.format(nsRuntime)))
   }
 }
