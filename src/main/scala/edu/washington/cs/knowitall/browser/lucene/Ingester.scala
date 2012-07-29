@@ -62,7 +62,8 @@ class Ingester(
   
   private def ingestFileToHdfs(file: File): String = {
     val hadoopFile = "%s/%s".format(hadoopDir, file.getName + ".lzo")
-    file #> "java -jar %s".format(converterJar) #| "lzop" #| "hadoop dfs -put - %s".format(hadoopFile) !
+    val remoteCatCmd = "ssh -i %s %s cat %s/%s".format(sshIdentityKeyFile, localDirHost, localDir, file.getName)
+    "ssh -i %s %s" #> "java -jar %s".format(converterJar) #| "lzop" #| "hadoop dfs -put - %s".format(hadoopFile) !
     
     hadoopFile
   }
