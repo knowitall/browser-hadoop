@@ -46,7 +46,7 @@ class Ingester(
   
   private def filesInLocalDir: Map[String, File] = {
     
-    val cmd = "ssh -i %s %s ls -1 %s".format(sshIdentityKeyFile, localDirHost, localDir)
+    val cmd = "ssh -i %s %s 'ls -1 %s'".format(sshIdentityKeyFile, localDirHost, localDir)
     printErr("Executing command: %s".format(cmd))
     Process(cmd).lines map { fileName => (stripPathAndExt(fileName), new File(fileName)) } toMap
   }
@@ -62,7 +62,7 @@ class Ingester(
   
   private def ingestFileToHdfs(file: File): String = {
     val hadoopFile = "%s/%s".format(hadoopDir, file.getName + ".lzo")
-    val remoteCatCmd = "ssh -i %s %s cat %s/%s".format(sshIdentityKeyFile, localDirHost, localDir, file.getName)
+    val remoteCatCmd = "ssh -i %s %s 'cat %s/%s'".format(sshIdentityKeyFile, localDirHost, localDir, file.getName)
     "ssh -i %s %s" #> "java -jar %s".format(converterJar) #| "lzop -c" #| "hadoop dfs -put - %s".format(hadoopFile) !
     
     hadoopFile
