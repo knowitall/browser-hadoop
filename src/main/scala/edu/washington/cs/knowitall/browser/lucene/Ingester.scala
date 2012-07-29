@@ -56,14 +56,14 @@ class Ingester(
   private def ingestHdfsToIndex(hdfsFile: String): Unit = {
     val hdfsCmd = "hadoop dfs -cat %s".format(hdfsFile)
     printErr("Executing command: %s".format(hdfsCmd))
-    val extrGroups = Process(hdfsCmd).lines.iterator flatMap ReVerbExtractionGroup.deserializeFromString
+    val extrGroups = (Process(hdfsCmd) #| Process("lzop -cd")).lines.iterator flatMap ReVerbExtractionGroup.deserializeFromString
     indexModifier.updateAll(extrGroups)
   }
   
   private def ingestFileToHdfs(file: File): String = {
     val hadoopFile = "%s/%s".format(hadoopDir, file.getName + ".lzo")
     val remoteCatCmd = "ssh -i %s %s cat %s/%s".format(sshIdentityKeyFile, localDirHost, localDir, file.getName)
-    "ssh -i %s %s" #> "java -jar %s".format(converterJar) #| "lzop" #| "hadoop dfs -put - %s".format(hadoopFile) !
+    "ssh -i %s %s" #> "java -jar %s".format(converterJar) #| "lzop -c" #| "hadoop dfs -put - %s".format(hadoopFile) !
     
     hadoopFile
   }
