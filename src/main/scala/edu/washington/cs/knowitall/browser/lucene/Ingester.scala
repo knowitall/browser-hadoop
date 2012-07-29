@@ -25,6 +25,8 @@ class Ingester(
   import Ingester.printErr
   import ParallelReVerbIndexModifier.extrToSingletonGroup
   
+  private var extractionsIngested = 0
+  
   private val whiteSpaceRegex = "\\s+".r
   
   private def stripPathAndExt(fileName: String): String = {
@@ -70,8 +72,9 @@ class Ingester(
     val hdfsCmd = "hadoop dfs -cat %s".format(hdfsFile)
     printErr("Executing command: %s".format(hdfsCmd))
     val extrs = (Process(hdfsCmd) #| Process("lzop -cd")).lines.iterator flatMap ReVerbExtraction.deserializeFromString
-    val groups = extrs filter extrFilter map extrToSingletonGroup(corpus)
-    indexModifier.updateAll(extrs map extrToSingletonGroup(corpus))
+    val groups = extrs filter extrFilter map extrToSingletonGroup(corpus) toSeq;
+    extractionsIngested += groups.size
+    indexModifier.updateAll(groups.iterator)
   }
   
   private def ingestFileToHdfs(file: File): String = {
@@ -91,7 +94,7 @@ class Ingester(
       printErr("Ingesting %s into index".format(name))
       ingestHdfsToIndex(hadoopFile)
     }
-    printErr("Ingestion completed.")
+    printErr("Ingestion complete, %d extractions total extractions ingested from %d files".format(extractionsIngested, filesToIngest.size) )
   }
 }
 
