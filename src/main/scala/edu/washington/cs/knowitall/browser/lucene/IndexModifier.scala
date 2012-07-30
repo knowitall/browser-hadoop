@@ -35,8 +35,8 @@ class ReVerbIndexModifier(
 
   
   def fetcher = new ExtractionGroupFetcher(new IndexSearcher(IndexReader.open(writer, true)), 1000, 1000, 10000, Set.empty[String])
-  val searcher = fetcher.indexSearcher
-  val reader = fetcher.indexSearcher.getIndexReader
+  private val searcher = fetcher.indexSearcher
+  private val reader = fetcher.indexSearcher.getIndexReader
   
   /**
     * Updates group to the index. Returns true if the index was modified.

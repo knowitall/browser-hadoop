@@ -61,7 +61,9 @@ class Ingester(
   
   private def extrFilter(extr: ReVerbExtraction): Boolean = {
     try {
-      printErr("(%s) %s".format(extr.indexGroupingKeyString, extr.toString))
+      // doing this helps make sure the extraction has valid indices.
+      val silent = ("(%s) %s".format(extr.indexGroupingKeyString, extr.toString))
+      // printErr(silent) 
       true
     } catch {
       case e: Exception => { e.printStackTrace; false }
@@ -70,7 +72,7 @@ class Ingester(
   
   private def ingestHdfsToIndex(hdfsFile: String): Unit = {
     val hdfsCmd = "hadoop dfs -cat %s".format(hdfsFile)
-    printErr("Executing command: %s".format(hdfsCmd))
+    printErr("Executing command: %s | lzop -cd".format(hdfsCmd))
     val extrs = (Process(hdfsCmd) #| Process("lzop -cd")).lines.iterator flatMap ReVerbExtraction.deserializeFromString
     val groups = extrs filter extrFilter map extrToSingletonGroup(corpus) toSeq;
     extractionsIngested += groups.size
@@ -110,7 +112,7 @@ object Ingester {
       if ((logger.isInstanceOf[ch.qos.logback.classic.Logger])) {
         val logbackLogger:ch.qos.logback.classic.Logger =
           logger.asInstanceOf[ch.qos.logback.classic.Logger]
-        logbackLogger.setLevel(ch.qos.logback.classic.Level.DEBUG)
+        logbackLogger.setLevel(ch.qos.logback.classic.Level.ERROR)
       }
     }    
 
