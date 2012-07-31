@@ -2,11 +2,73 @@ package edu.washington.cs.knowitall.browser.hadoop.scoobi
 
 import com.nicta.scoobi.Scoobi._
 import com.nicta.scoobi.lib.Relational
-import UnlinkableEntityTyper.REG
 import scopt.OptionParser
-import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
+import edu.washington.cs.knowitall.browser.util.StringSerializer
+import edu.washington.cs.knowitall.browser.extraction.ExtractionTuple
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.{ Arg1, Arg2, ArgField }
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.TypePrediction
+
+class TypeAttacher[T <: ExtractionTuple](
+    val argField: ArgField, 
+    val tuplePath: String, 
+    val argTypesPath: String, 
+    val outputPath: String,
+    val serializer: StringSerializer[T]) {
+
+  def go(inputTuples: DList[String]): DList[String] = {
+
+    def loadArgRegPair(str: String): Option[(String, String)] = serializer.deserializeFromString(str) map { reg => 
+      val argNorm = argField.getArgNorm(reg)
+      // bust up arg groups that are too short anyways. This helps prevent huge groups in the reducer. 
+      val key = if (argNorm.length < UnlinkableEntityTyper.minArgLength) "%s%s".format(scala.util.Random.nextInt(100), argNorm) else argNorm
+      (key, serializer.serializeToString(reg))
+    }
+    def argTypePair(typePred: TypePrediction) = {
+      val argNorm = typePred.argString
+      val key = if (argNorm.length < UnlinkableEntityTyper.minArgLength) "%s%s".format(scala.util.Random.nextInt(100), argNorm) else argNorm
+      (key, typePred.toString)
+    }
+    // first step is to do a join to match REGs with their Option[TypePrediction]
+    val argRegPairs: DList[(String, String)] = inputTuples flatMap loadArgRegPair
+    val argTypePredPairs = fromTextFile(argTypesPath) flatMap TypePrediction.fromString map argTypePair
+
+    val leftJoined = Relational.joinLeft(argRegPairs, argTypePredPairs)
+
+    // now just attach types where we aren't already linked
+    def tryAttachType(reg: T, typePred: TypePrediction) = {
+      def typeInts = typePred.predictedTypes.map(_._1.enum)
+      if (argField.getTypeStrings(reg).isEmpty) argField.attachTypes(reg, typeInts) else reg
+    }
+
+    var numArgs = 0L
+    var numAlreadyTyped = 0L
+    var numTypesAttached = 0L
+
+    val finalResult = leftJoined map {
+      case (argString, (regString, optTypePred)) => {
+        if (numArgs % 2000 == 0) System.err.println("NumArgs: %s, NumTypesAttached: %s, NumAlreadyTyped: %s".format(numArgs, numAlreadyTyped, numTypesAttached))
+        numArgs += 1
+        optTypePred match {
+          case Some(typePredString) => {
+            lazy val reg = serializer.deserializeFromString(regString).get
+            TypePrediction.fromString(typePredString) match {
+              case Some(typePred) => {
+                val newReg = tryAttachType(reg, typePred)
+                if (argField.getTypeStrings(reg).isEmpty) numTypesAttached += 1 else numAlreadyTyped += 1
+                if (argField.getTypeStrings(newReg).isEmpty) System.err.println("Strange: %s\t%s".format(typePredString, regString))
+                serializer.serializeToString(newReg)
+              }
+              case None => serializer.serializeToString(reg) // helps write out newer serialization
+            }
+          }
+          case None => regString
+        }
+      }
+    }
+
+    finalResult
+  }
+}
 
 object TypeAttacher extends ScoobiApp {
 
@@ -31,57 +93,5 @@ object TypeAttacher extends ScoobiApp {
     if (!parser.parse(args)) throw new IllegalArgumentException("Couldn't parse args")
 
     this.configuration.jobNameIs("Type-Prediction-Attacher-%s".format(argField.name))
-    
-    def loadReg(str: String) = ReVerbExtractionGroup.deserializeFromString(str)
-    def argRegPair(reg: REG) = {
-      val argNorm = argField.getArgNorm(reg)
-      // bust up arg groups that are too short anyways. This helps prevent huge groups in the reducer. 
-      val key = if (argNorm.length < UnlinkableEntityTyper.minArgLength) "%s%s".format(scala.util.Random.nextInt, argNorm) else argNorm
-      (key, ReVerbExtractionGroup.serializeToString(reg))
-    }
-    def argTypePair(typePred: TypePrediction) = {
-      val argNorm = typePred.argString
-      val key = if (argNorm.length < UnlinkableEntityTyper.minArgLength) "%s%s".format(scala.util.Random.nextInt(100), argNorm) else argNorm
-      (key, typePred.toString)
-    }
-    // first step is to do a join to match REGs with their Option[TypePrediction]
-    val argRegPairs = fromTextFile(regsPath) flatMap loadReg map argRegPair
-    val argTypePredPairs = fromTextFile(argTypesPath) flatMap TypePrediction.fromString map argTypePair
-
-    val leftJoined = Relational.joinLeft(argRegPairs, argTypePredPairs)
-
-    // now just attach types where we aren't already linked
-    def tryAttachType(reg: REG, typePred: TypePrediction) = {
-      def typeInts = typePred.predictedTypes.map(_._1.enum)
-      if (argField.getTypeStrings(reg).isEmpty) argField.attachTypes(reg, typeInts) else reg
-    }
-
-    var numArgs = 0L
-    var numAlreadyTyped = 0L
-    var numTypesAttached = 0L
-
-    val finalResult = leftJoined map {
-      case (argString, (regString, optTypePred)) => {
-        if (numArgs % 2000 == 0) System.err.println("NumArgs: %s, NumTypesAttached: %s, NumAlreadyTyped: %s".format(numArgs, numAlreadyTyped, numTypesAttached)) 
-        numArgs += 1
-        optTypePred match {
-          case Some(typePredString) => {
-            lazy val reg = ReVerbExtractionGroup.deserializeFromString(regString).get
-            TypePrediction.fromString(typePredString) match {
-              case Some(typePred) => {
-                val newReg = tryAttachType(reg, typePred)
-                if (argField.getTypeStrings(reg).isEmpty) numTypesAttached += 1 else numAlreadyTyped += 1
-                if (argField.getTypeStrings(newReg).isEmpty) System.err.println("Strange: %s\t%s".format(typePredString, regString))
-                ReVerbExtractionGroup.serializeToString(newReg)
-              }
-              case None => ReVerbExtractionGroup.serializeToString(reg) // helps write out newer serialization
-            }
-          }
-          case None => regString
-        }
-      }
-    }
-    
-    persist(toTextFile(finalResult, outRegsPath + "/"))
   }
 }

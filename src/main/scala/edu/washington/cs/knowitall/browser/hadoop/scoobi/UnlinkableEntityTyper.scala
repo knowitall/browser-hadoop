@@ -10,7 +10,9 @@ import edu.washington.cs.knowitall.browser.extraction.FreeBaseEntity
 import edu.washington.cs.knowitall.browser.extraction.FreeBaseType
 import edu.washington.cs.knowitall.browser.extraction.Instance
 import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
+import edu.washington.cs.knowitall.browser.extraction.ExtractionTuple
 import edu.washington.cs.knowitall.browser.util.TaggedStemmer
+import edu.washington.cs.knowitall.browser.util.StringSerializer
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.tool.chunk.OpenNlpChunker
 import edu.washington.cs.knowitall.tool.chunk.ChunkedToken
@@ -23,25 +25,28 @@ import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.{Arg1, Arg2, ArgFi
 import scopt.OptionParser
 import scala.collection.mutable
 import scala.io.Source
-import UnlinkableEntityTyper.REG
 
-class UnlinkableEntityTyper(
-    val argField: ArgField, 
-    val maxSimilarEntities: Int, 
-    val maxPredictedTypes: Int,
-    val minShareScore: Int,
-    val minRelWeight: Double, 
-    val maxEntitiesReadPerRel: Int, 
-    val maxEntitiesWritePerRel: Int,
-    val maxRelInfosReadPerArg: Int) {
+case class TyperSettings(
+  val argField: ArgField, 
+  val maxSimilarEntities: Int, 
+  val maxPredictedTypes: Int,
+  val minShareScore: Int,
+  val minRelWeight: Double, 
+  val maxEntitiesReadPerRel: Int, 
+  val maxEntitiesWritePerRel: Int,
+  val maxRelInfosReadPerArg: Int
+)
 
-  import UnlinkableEntityTyper.{ REG, allPairs, tabSplit, minArgLength }
+class UnlinkableEntityTyper[T <: ExtractionTuple](val settings: TyperSettings, val tupleSerializer: StringSerializer[T]) {
+
+  import UnlinkableEntityTyper.{ allPairs, tabSplit, minArgLength }
   import TypeInfoUtils.typeStringMap
   import scala.util.Random
   import edu.washington.cs.knowitall.browser.lucene.ExtractionGroupFetcher.entityStoplist
+  import settings._
 
   def getOptReg(regString: String) = time(getOptRegUntimed(regString), Timers.incParseRegCount _)
-  def getOptRegUntimed(regString: String): Option[REG] = ReVerbExtractionGroup.deserializeFromString(regString)
+  def getOptRegUntimed(regString: String): Option[T] = tupleSerializer.deserializeFromString(regString)
 
   var numRelInfosOutput = 0
   var numRelInfosSkipped = 0
@@ -59,8 +64,8 @@ class UnlinkableEntityTyper(
    
     if (Timers.loadRelInfoCount.count % 500 == 0) System.err.println("num relinfos output: %s, num not output: %s, num empty: %s".format(numRelInfosOutput, numRelInfosSkipped, numSkippedDueToEmpty))
    
-    val readEntities = relEntities take(maxEntitiesReadPerRel)
-    val writeEntities = Random.shuffle(readEntities.toSeq).take(maxEntitiesWritePerRel)
+    val readEntities = relEntities take(settings.maxEntitiesReadPerRel)
+    val writeEntities = Random.shuffle(readEntities.toSeq).take(settings.maxEntitiesWritePerRel)
     
     lazy val relWeight = calculateRelWeight(writeEntities.toIndexedSeq)
     if (relString.length <= 3 || relString.length > 100 || writeEntities.isEmpty || relWeight < minRelWeight) {
@@ -75,22 +80,22 @@ class UnlinkableEntityTyper(
   }
 
   // returns rel string, group string
-  def relationEntityKv(group: REG) = time(relationRegKvUntimed(group), Timers.incRelRegCount _)
-  def relationRegKvUntimed(group: REG): Option[(String, String)] = {
+  def relationEntityKv(tuple: T) = time(relationRegKvUntimed(tuple), Timers.incRelRegCount _)
+  def relationRegKvUntimed(tuple: T): Option[(String, String)] = {
     def entityBlacklistFilter(entity: EntityInfo): Boolean = !entityStoplist.contains(entity.fbid)
     def typelessEntityFilter(entity: EntityInfo): Boolean = !entity.types.isEmpty
-    argField.loadEntityInfo(group) filter entityBlacklistFilter filter typelessEntityFilter map { entityInfo => (group.rel.norm, entityInfo.toString) }
+    argField.loadEntityInfo(tuple) filter entityBlacklistFilter filter typelessEntityFilter map { entityInfo => (tuple.rel.norm, entityInfo.toString) }
   }
 
-  def relationArgKv(group: REG): Option[(String, String)] = {
+  def relationArgKv(group: T): Option[(String, String)] = {
     val argString = argField.getArgNorm(group)
     if (filterArgString(argString)) Some((group.rel.norm, argString))
     else None
   }
   
   // returns arg string, relinfo, group string
-  def argRelInfo(relInfo: RelInfo)(group: REG): (String, String) = time(argRelInfoUntimed(relInfo)(group), Timers.incArgRelInfoCount _) 
-  def argRelInfoUntimed(relInfo: RelInfo)(group: REG): (String, String) = (argField.getArgNorm(group), relInfo.toString)
+  def argRelInfo(relInfo: RelInfo)(group: T): (String, String) = time(argRelInfoUntimed(relInfo)(group), Timers.incArgRelInfoCount _) 
+  def argRelInfoUntimed(relInfo: RelInfo)(group: T): (String, String) = (argField.getArgNorm(group), relInfo.toString)
 
   // Input elements are (fbid, count, types)
   def calculateRelWeight(entities: IndexedSeq[EntityInfo]) = time(calculateRelWeightUntimed(entities), Timers.incRelWeightCount _)
@@ -233,8 +238,6 @@ object UnlinkableEntityTyper extends ScoobiApp {
   
   val minArgLength = 4
 
-  type REG = ExtractionGroup[ReVerbExtraction]
-
   def run() = {
 
     var inputPath, outputPath = ""
@@ -277,7 +280,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
     
     require(!onlyPhaseOne || !onlyPhaseTwo)
     
-    val typer = new UnlinkableEntityTyper(
+    val typerSettings = new TyperSettings(
         argField=argField,
         maxSimilarEntities=maxSimilarEntities,
         maxPredictedTypes=maxPredictedTypes,
@@ -287,6 +290,8 @@ object UnlinkableEntityTyper extends ScoobiApp {
         maxEntitiesWritePerRel=maxEntitiesWritePerRel,
         maxRelInfosReadPerArg=maxRelInfosReadPerArg
       )
+    
+    val typer = new UnlinkableEntityTyper(typerSettings, ReVerbExtractionGroup)
     
     def phaseOne(rawRegStrings: DList[String]): DList[(String, String)] = {
 
