@@ -92,6 +92,7 @@ class Ingester(
     val compressCmd = "%s -c".format(lzopCmd)
     val hadoopFile = "%s/%s".format(hadoopDir, file.getName + ".lzo")
     val hdfsPutCmd = "%s dfs -put - %s".format(hadoopCmd, hadoopFile)
+    printErr("Executing command: %s | %s | %s | %s".format(remoteCatCmd, convertCmd, compressCmd, hdfsPutCmd))
     remoteCatCmd #> convertCmd #| compressCmd #| hdfsPutCmd !
     
     hadoopFile
