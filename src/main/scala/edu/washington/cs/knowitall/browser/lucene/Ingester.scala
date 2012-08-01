@@ -168,8 +168,8 @@ object Ingester {
     )
     
     val nsRuntime = Timing.time {
-      ingester.run
-      indexModifier.close
+      try { ingester.run }
+      finally { indexModifier.close }
     }
     println("Run time: %s".format(Timing.Seconds.format(nsRuntime)))
   }
