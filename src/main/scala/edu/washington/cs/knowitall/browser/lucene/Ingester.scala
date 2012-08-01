@@ -29,6 +29,12 @@ class Ingester(
   
   private val whiteSpaceRegex = "\\s+".r
   
+  // These are particular to the RV cluster
+  private val hadoopCmd = "/home/knowall/hadoop/bin/hadoop"
+  private val sshCmd = "/usr/bin/ssh"
+  private val lzopCmd = "/usr/bin/lzop"
+  private val javaCmd = "/usr/bin/java"
+  
   private def stripPathAndExt(fileName: String): String = {
     val noPath = fileName.drop(fileName.lastIndexOf(File.separatorChar + 1))
       val noExt = noPath.take(noPath.indexOf("""."""))
@@ -37,7 +43,7 @@ class Ingester(
   
   private def filesInHadoopDir: Set[String] = {
     
-    val fullPathNames = Process("hadoop dfs -ls %s".format(hadoopDir)).lines.flatMap { cmdOutputLine => 
+    val fullPathNames = Process("%s dfs -ls %s".format(hadoopCmd, hadoopDir)).lines.flatMap { cmdOutputLine => 
       val split = whiteSpaceRegex.split(cmdOutputLine)
       split match {
         case Array(attrs, repl, owner, group, size, dateYmd, time, fullName, _*) => {
@@ -52,7 +58,7 @@ class Ingester(
   
   private def filesInLocalDir: Map[String, File] = {
     
-    val cmd = "ssh -i %s %s ls -1 %s".format(sshIdentityKeyFile, localDirHost, localDir)
+    val cmd = "%s -i %s %s ls -1 %s".format(sshCmd, sshIdentityKeyFile, localDirHost, localDir)
     printErr("Executing command: %s".format(cmd))
     Process(cmd).lines map { fileName => (stripPathAndExt(fileName), new File(fileName)) } toMap
   }
@@ -71,18 +77,22 @@ class Ingester(
   }
   
   private def ingestHdfsToIndex(hdfsFile: String): Unit = {
-    val hdfsCmd = "hadoop dfs -cat %s".format(hdfsFile)
-    printErr("Executing command: %s | lzop -cd".format(hdfsCmd))
-    val extrs = (Process(hdfsCmd) #| Process("lzop -cd")).lines.iterator flatMap ReVerbExtraction.deserializeFromString
+    val hdfsCmd = "%s dfs -cat %s".format(hadoopCmd, hdfsFile)
+    val lzopFullCmd = "%s -cd".format(lzopCmd)
+    printErr("Executing command: %s | %s".format(hdfsCmd, lzopFullCmd))
+    val extrs = (Process(hdfsCmd) #| Process(lzopFullCmd)).lines.iterator flatMap ReVerbExtraction.deserializeFromString
     val groups = extrs filter extrFilter map extrToSingletonGroup(corpus) toSeq;
     extractionsIngested += groups.size
     indexModifier.updateAll(groups.iterator)
   }
   
   private def ingestFileToHdfs(file: File): String = {
+    val remoteCatCmd = "%s -i %s %s cat %s/%s".format(sshCmd, sshIdentityKeyFile, localDirHost, localDir, file.getName)
+    val convertCmd = "%s -jar %s".format(javaCmd, converterJar)
+    val compressCmd = "%s -c".format(lzopCmd)
     val hadoopFile = "%s/%s".format(hadoopDir, file.getName + ".lzo")
-    val remoteCatCmd = "ssh -i %s %s cat %s/%s".format(sshIdentityKeyFile, localDirHost, localDir, file.getName)
-    remoteCatCmd #> "java -jar %s".format(converterJar) #| "lzop -c" #| "hadoop dfs -put - %s".format(hadoopFile) !
+    val hdfsPutCmd = "%s dfs -put - %s".format(hadoopCmd, hadoopFile)
+    remoteCatCmd #> convertCmd #| compressCmd #| hdfsPutCmd !
     
     hadoopFile
   }
