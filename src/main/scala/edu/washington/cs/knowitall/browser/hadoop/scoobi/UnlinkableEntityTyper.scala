@@ -10,7 +10,6 @@ import edu.washington.cs.knowitall.browser.extraction.FreeBaseEntity
 import edu.washington.cs.knowitall.browser.extraction.FreeBaseType
 import edu.washington.cs.knowitall.browser.extraction.Instance
 import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
-import edu.washington.cs.knowitall.browser.extraction.ExtractionTuple
 import edu.washington.cs.knowitall.browser.util.TaggedStemmer
 import edu.washington.cs.knowitall.browser.util.StringSerializer
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
@@ -21,21 +20,37 @@ import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.RelInfo
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.TypeInfo
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.TypeInfoUtils
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.TypePrediction
-import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.{Arg1, Arg2, ArgField}
+import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.{ Arg1, Arg2, ArgField }
 import scopt.OptionParser
 import scala.collection.mutable
 import scala.io.Source
 
 case class TyperSettings(
-  val argField: ArgField, 
-  val maxSimilarEntities: Int, 
-  val maxPredictedTypes: Int,
-  val minShareScore: Int,
-  val minRelWeight: Double, 
-  val maxEntitiesReadPerRel: Int, 
-  val maxEntitiesWritePerRel: Int,
-  val maxRelInfosReadPerArg: Int
-)
+  val argField: ArgField,					// which argument field? (arg1 or arg2)
+  val maxSimilarEntities: Int = 10,	        // predict types from the top k=maxSimilarEntities entities.
+  val maxPredictedTypes: Int = 5,			// predict no more than this many types
+  val minShareScore: Int = 6,				// predict types only when at least this many entities share that type
+  val minRelWeight: Double = 0.25,			// RelInfos (relations) with weight less than this are ignored.
+  val keepRelString: Boolean = false,		// Carry around the original relation string while predicting types? (only needed for debugging)
+  val maxEntitiesReadPerRel: Int = 5000,    // Read into memory at most this many entities per relation
+  val maxEntitiesWritePerRel: Int = 150,    // Write to intermediate output at most this many entities per relation (a uniform sample of entities read)
+  val maxRelInfosReadPerArg: Int = 20000,   // Read into memory at most this many RelInfos per argument 
+  val maxArgsPerRelInfo: Int = 1000)  		// Duplicate each relInfo at most this many times
+
+abstract class ExtractionTuple {
+  def arg1Norm: String
+  def arg1EntityId: Option[String]
+  def arg1Types: Set[String]
+
+  def relNorm: String
+
+  def arg2Norm: String
+  def arg2EntityId: Option[String]
+  def arg2Types: Set[String]
+
+  def setArg1Types(newTypes: Set[String]): ExtractionTuple
+  def setArg2Types(newTypes: Set[String]): ExtractionTuple
+}
 
 class UnlinkableEntityTyper[T <: ExtractionTuple](val settings: TyperSettings, val tupleSerializer: StringSerializer[T]) {
 
@@ -51,50 +66,49 @@ class UnlinkableEntityTyper[T <: ExtractionTuple](val settings: TyperSettings, v
   var numRelInfosOutput = 0
   var numRelInfosSkipped = 0
   var numSkippedDueToEmpty = 0
-  
+
   private val numPattern = "[0-9][0-9][0-9]+".r
   private val argStopList = Set("one", "two", "three", "four", "five", "some", "any", "all")
   private def filterArgString(str: String) = (str.length >= minArgLength) && (numPattern.findFirstIn(str) match {
     case Some(num) => false
     case None => !tabSplit.split(str).exists(tok => argStopList.contains(tok))
   })
-  
+
   def getOptRelInfo(relString: String, relEntities: Iterator[EntityInfo]) = time(getOptRelInfoUntimed(relString, relEntities), Timers.incLoadRelInfoCount _)
   def getOptRelInfoUntimed(relString: String, relEntities: Iterator[EntityInfo]): Option[RelInfo] = {
-   
+
     if (Timers.loadRelInfoCount.count % 500 == 0) System.err.println("num relinfos output: %s, num not output: %s, num empty: %s".format(numRelInfosOutput, numRelInfosSkipped, numSkippedDueToEmpty))
-   
-    val readEntities = relEntities take(settings.maxEntitiesReadPerRel)
+
+    val readEntities = relEntities take (settings.maxEntitiesReadPerRel)
     val writeEntities = Random.shuffle(readEntities.toSeq).take(settings.maxEntitiesWritePerRel)
-    
+
     lazy val relWeight = calculateRelWeight(writeEntities.toIndexedSeq)
     if (relString.length <= 3 || relString.length > 100 || writeEntities.isEmpty || relWeight < minRelWeight) {
       numRelInfosSkipped += 1
       if (writeEntities.isEmpty) numSkippedDueToEmpty += 1
       None
-    }
-    else {
+    } else {
       numRelInfosOutput += 1
       Some(RelInfo(relString, relWeight, writeEntities.toSet))
     }
   }
 
   // returns rel string, group string
-  def relationEntityKv(tuple: T) = time(relationRegKvUntimed(tuple), Timers.incRelRegCount _)
-  def relationRegKvUntimed(tuple: T): Option[(String, String)] = {
+  def relationEntityKv(tupleString: String) = time(relationRegKvUntimed(tupleString), Timers.incRelRegCount _)
+  def relationRegKvUntimed(tupleString: String): Option[(String, String)] = getOptReg(tupleString) flatMap { tuple =>
     def entityBlacklistFilter(entity: EntityInfo): Boolean = !entityStoplist.contains(entity.fbid)
     def typelessEntityFilter(entity: EntityInfo): Boolean = !entity.types.isEmpty
-    argField.loadEntityInfo(tuple) filter entityBlacklistFilter filter typelessEntityFilter map { entityInfo => (tuple.rel.norm, entityInfo.toString) }
+    argField.loadEntityInfo(tuple) filter entityBlacklistFilter filter typelessEntityFilter map { entityInfo => (tuple.relNorm, entityInfo.toString) }
   }
 
-  def relationArgKv(group: T): Option[(String, String)] = {
-    val argString = argField.getArgNorm(group)
-    if (filterArgString(argString)) Some((group.rel.norm, argString))
+  def relationArgKv(tupleString: String): Option[(String, String)] = getOptReg(tupleString) flatMap { tuple =>
+    val argString = argField.getArgNorm(tuple)
+    if (filterArgString(argString)) Some((tuple.relNorm, argString))
     else None
   }
-  
+
   // returns arg string, relinfo, group string
-  def argRelInfo(relInfo: RelInfo)(group: T): (String, String) = time(argRelInfoUntimed(relInfo)(group), Timers.incArgRelInfoCount _) 
+  def argRelInfo(relInfo: RelInfo)(group: T): (String, String) = time(argRelInfoUntimed(relInfo)(group), Timers.incArgRelInfoCount _)
   def argRelInfoUntimed(relInfo: RelInfo)(group: T): (String, String) = (argField.getArgNorm(group), relInfo.toString)
 
   // Input elements are (fbid, count, types)
@@ -117,96 +131,170 @@ class UnlinkableEntityTyper[T <: ExtractionTuple](val settings: TyperSettings, v
     val denominator = (domainSize * (domainSize - 1.0)) / 2.0
     terms.sum / denominator
   }
-  
+
   // Performs the "find similar entities" step described in the paper
   // returns totalentity weight as a second argument
   def getTopEntitiesForArg(relInfos: Seq[RelInfo]) = time(getTopEntitiesForArgUntimed(relInfos), Timers.incGetTopEntitiesCount _)
   def getTopEntitiesForArgUntimed(relInfos: Seq[RelInfo]): (Seq[EntityInfo], Double) = {
     // flatten entities and their weights
-    def expWeight(weight: Double) = math.pow(10, 4*weight) // this is what tom found to work as described in the paper.
-    
-    val entitiesWeighted = relInfos.flatMap { relInfo => 
+    def expWeight(weight: Double) = math.pow(10, 4 * weight) // this is what tom found to work as described in the paper.
+
+    val entitiesWeighted = relInfos.flatMap { relInfo =>
       relInfo.entities.map(ent => (ent, expWeight(relInfo.weight)))
     }
     val totalWeight = entitiesWeighted.map(_._2).sum
     // now group by entity and sum the weight
-    val topEntities = entitiesWeighted.groupBy(_._1).iterator.map { case (entity, entGroup) => 
-      (entity, entGroup.map(_._2).sum)  
+    val topEntities = entitiesWeighted.groupBy(_._1).iterator.map {
+      case (entity, entGroup) =>
+        (entity, entGroup.map(_._2).sum)
     }.toSeq.sortBy(-_._2).take(maxSimilarEntities)
     (topEntities.map(_._1), totalWeight)
   }
-  
+
   // returns type enum int, #shared. Seq.empty if no prediction.
   def predictTypes(topEntities: Seq[EntityInfo]) = time(predictTypesUntimed(topEntities), Timers.incPredictTypesCount _)
   def predictTypesUntimed(topEntities: Seq[EntityInfo]): Seq[(TypeInfo, Int)] = {
-    
+
     // flatMap the entities to types
     def toTypes(entity: EntityInfo) = entity.types.iterator
     val types = topEntities flatMap toTypes
     // type, #shared
-    val typesCounted = types.groupBy(identity).flatMap { case (typeInt, typeGroup) => 
-      val shareScore = typeGroup.size
-      TypeInfoUtils.typeEnumMap.get(typeInt).map { typeInfo => (typeInfo, shareScore) }
+    val typesCounted = types.groupBy(identity).flatMap {
+      case (typeInt, typeGroup) =>
+        val shareScore = typeGroup.size
+        TypeInfoUtils.typeEnumMap.get(typeInt).map { typeInfo => (typeInfo, shareScore) }
     }
     typesCounted.toSeq.filter(_._2 >= minShareScore).sortBy(-_._2).take(maxPredictedTypes)
   }
-  
+
+  def phaseOne(rawRegStrings: DList[String]): DList[(String, String)] = {
+
+    // (relation, REG w/ relation) pairs
+    // first, we want to group by relation in order to compute relation weight and entity range. 
+    val relEntityPairs = rawRegStrings flatMap relationEntityKv
+
+    // (relation, Iterable[REG w/ relation]), e.g. the above, grouped by the first element.
+    // begin the reduce phase by calling groupByKey 
+    def relEntityGrouped = relEntityPairs.groupByKey
+
+    // (relation, RelInfo) pairs
+    val relInfoPairs = relEntityGrouped flatMap {
+      case (relString, relEntityStrings) =>
+        val relEntities = relEntityStrings.iterator map EntityInfo.fromString
+        val relStringSwitch = if (keepRelString) relString else "-"
+        getOptRelInfo(relString, relEntities).map(relInfo => (relString, relInfo.toString))
+    }
+
+    val relArgPairs = rawRegStrings flatMap relationArgKv
+
+    // (relation, Singleton[RelInfo], Groups of REG w/ relation) 
+    // groups of relInfoPairs in the result are always singleton iterables, since there is only one relInfo per rel.
+    val relInfoRelArgsGrouped = Relational.coGroup(relInfoPairs, relArgPairs)
+
+    // (argument, RelInfo, arg string) pairs
+    val argRelInfoPairs: DList[(String, String)] = {
+      var numRelInfoPairs = 0
+      relInfoRelArgsGrouped.flatMap {
+        case (relString, (relInfoSingleton, relArgStrings)) =>
+          val relInfoStringOpt = relInfoSingleton.headOption
+          // attach relInfo to every argRelReg 
+          relInfoStringOpt match {
+            case Some(relInfoString) => {
+              relArgStrings.take(maxArgsPerRelInfo).toSeq.distinct.map { argString =>
+                numRelInfoPairs += 1
+                if (numRelInfoPairs == 1 || numRelInfoPairs % 2000 == 0) System.err.println("num rel info pairs: %s".format(numRelInfoPairs))
+                (argString, relInfoString)
+              }
+            }
+            case None => Iterable.empty
+          }
+      }
+    }
+    argRelInfoPairs
+  }
+
+  def phaseTwo(argRelInfoPairs: DList[(String, String)]): DList[String] = {
+
+    val argRelInfosGrouped: DList[(String, Iterable[String])] = argRelInfoPairs.groupByKey
+
+    def getNotableRels(relInfos: Seq[RelInfo]): Seq[RelInfo] = {
+      val descending = relInfos.sortBy(-_.weight)
+      val best = descending.take(4)
+      val deduped = best.toSet.iterator.toSeq
+      val sorted = deduped.sortBy(-_.weight)
+      sorted
+    }
+
+    // (REG)
+    val typePredictionStrings = argRelInfosGrouped flatMap {
+      case (argString, relInfoStrings) =>
+        val relInfos = relInfoStrings flatMap RelInfo.fromString take (maxRelInfosReadPerArg) toSeq
+        def notableRels = if (keepRelString) getNotableRels(relInfos) map (ri => (ri.string, ri.weight)) else Seq.empty // debug, deleteme
+        val (topEntitiesForArg, totalEntityWeight) = getTopEntitiesForArg(relInfos)
+        val predictedTypes = predictTypes(topEntitiesForArg)
+        def typePrediction = TypePrediction(argString, predictedTypes, notableRels, totalEntityWeight, topEntitiesForArg.take(5).map(_.fbid))
+        if (predictedTypes.isEmpty) None else Some(typePrediction.toString)
+    }
+
+    typePredictionStrings
+  }
+
   object Timers {
-    
+
     var argRelInfoCount = MutInt.zero
     var argRelInfoTime = MutInt.zero
-    
+
     def incArgRelInfoCount(time: Long): Unit = {
       argRelInfoCount.inc
       argRelInfoTime.add(time)
       bleat(argRelInfoCount, argRelInfoTime, "arg/relinfo pairs: %s, in %s, (Avg: %s)", 2000)
     }
-    
+
     var argRegCount = MutInt.zero
     var argRegTime = MutInt.zero
-    
+
     def incArgRegCount(time: Long): Unit = {
       argRegCount.inc
       argRegTime.add(time)
       bleat(argRegCount, argRegTime, "arg/reg pairs: %s, in %s, (Avg: %s)", 2000)
     }
-    
+
     var relWeightCount = MutInt.zero
     var relWeightTime = MutInt.zero
-    
+
     def incRelWeightCount(time: Long): Unit = {
       relWeightCount.inc
       relWeightTime.add(time)
       bleat(relWeightCount, relWeightTime, "relWeights calculated: %s, in %s, (Avg: %s)", 1000)
     }
-    
+
     var parseRegCount = MutInt.zero
     var parseRegTime = MutInt.zero
-    
+
     def incParseRegCount(time: Long): Unit = {
       parseRegCount.inc
       parseRegTime.add(time)
       bleat(parseRegCount, parseRegTime, "REGs parsed: %s, in %s, (Avg: %s)", 4000)
     }
-    
+
     var loadRelInfoCount = MutInt.zero
     var loadRelInfoTime = MutInt.zero
-    
+
     def incLoadRelInfoCount(time: Long): Unit = {
       loadRelInfoCount.inc
       loadRelInfoTime.add(time)
       bleat(loadRelInfoCount, loadRelInfoTime, "relInfos loaded: %s, in %s, (Avg: %s)", 10000)
     }
-    
+
     var getTopEntitiesCount = MutInt.zero
     var getTopEntitiesTime = MutInt.zero
-    
+
     def incGetTopEntitiesCount(time: Long): Unit = {
       getTopEntitiesCount.inc
       getTopEntitiesTime.add(time)
       bleat(getTopEntitiesCount, getTopEntitiesTime, "calls to getTopEntities: %s, in %s, (Avg: %s)", 1000)
     }
-    
+
     var predictTypesCount = MutInt.zero
     var predictTypesTime = MutInt.zero
 
@@ -215,29 +303,35 @@ class UnlinkableEntityTyper[T <: ExtractionTuple](val settings: TyperSettings, v
       predictTypesTime.add(time)
       bleat(predictTypesCount, predictTypesTime, "calls to predictTypes: %s, in %s, (Avg: %s)", 1000)
     }
-    
+
     var relRegCount = MutInt.zero
     var relRegTime = MutInt.zero
-    
+
     def incRelRegCount(time: Long): Unit = {
       relRegCount.inc
       predictTypesTime.add(time)
       bleat(relRegCount, predictTypesTime, "relReg pairs: %s, in %s, (Avg: %s)", 10000)
     }
-    
+
     private def bleat(count: MutInt, time: MutInt, fmtString: String, interval: Int) = {
       val avgTime = time.count / count.count
       if (count.count % interval == 0) System.err.println(fmtString.format(count.count.toString, Seconds.format(time.count), Seconds.format(avgTime)))
     }
   }
+  // end class UET
 }
 
 object UnlinkableEntityTyper extends ScoobiApp {
 
-  val tabSplit = "\t".r
-  
-  val minArgLength = 4
+  import edu.washington.cs.knowitall.browser.hadoop.util.RegWrapper
 
+  val tabSplit = "\t".r
+
+  val minArgLength = 4
+  
+  // Override this with your implementation of StringSerializer for your version of ExtractionTuple
+  protected def getStringSerializer: StringSerializer[_ <: ExtractionTuple] = RegWrapper
+  
   def run() = {
 
     var inputPath, outputPath = ""
@@ -250,7 +344,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
     var maxEntitiesReadPerRel = 5000
     var maxEntitiesWritePerRel = 150
     var maxRelInfosReadPerArg = 20000
-    var maxRelInfosWritePerArg = 1000
+    var maxArgsPerRelInfo = 1000
     var keepRelString = false
     var onlyPhaseOne = false
     var onlyPhaseTwo = false
@@ -277,104 +371,29 @@ object UnlinkableEntityTyper extends ScoobiApp {
     }
 
     if (!parser.parse(args)) System.exit(1)
-    
+
     require(!onlyPhaseOne || !onlyPhaseTwo)
-    
+
     val typerSettings = new TyperSettings(
-        argField=argField,
-        maxSimilarEntities=maxSimilarEntities,
-        maxPredictedTypes=maxPredictedTypes,
-        minShareScore = minShareScore,
-        minRelWeight=minRelWeight,
-        maxEntitiesReadPerRel=maxEntitiesReadPerRel,
-        maxEntitiesWritePerRel=maxEntitiesWritePerRel,
-        maxRelInfosReadPerArg=maxRelInfosReadPerArg
-      )
-    
-    val typer = new UnlinkableEntityTyper(typerSettings, ReVerbExtractionGroup)
-    
-    def phaseOne(rawRegStrings: DList[String]): DList[(String, String)] = {
+      argField = argField,
+      maxSimilarEntities = maxSimilarEntities,
+      maxPredictedTypes = maxPredictedTypes,
+      minShareScore = minShareScore,
+      minRelWeight = minRelWeight,
+      keepRelString = keepRelString,
+      maxEntitiesReadPerRel = maxEntitiesReadPerRel,
+      maxEntitiesWritePerRel = maxEntitiesWritePerRel,
+      maxRelInfosReadPerArg = maxRelInfosReadPerArg,
+      maxArgsPerRelInfo = maxArgsPerRelInfo)
 
-      // (REG) elements
-      val regs = rawRegStrings flatMap typer.getOptReg
+    val typer = new UnlinkableEntityTyper(typerSettings, getStringSerializer)
 
-      // (relation, REG w/ relation) pairs
-      // first, we want to group by relation in order to compute relation weight and entity range. 
-      val relEntityPairs = regs flatMap typer.relationEntityKv
-
-      // (relation, Iterable[REG w/ relation]), e.g. the above, grouped by the first element.
-      // begin the reduce phase by calling groupByKey 
-      def relEntityGrouped = relEntityPairs.groupByKey
-
-      // (relation, RelInfo) pairs
-      val relInfoPairs = relEntityGrouped flatMap {
-        case (relString, relEntityStrings) =>
-          val relEntities = relEntityStrings.iterator map EntityInfo.fromString
-          val relStringSwitch = if (keepRelString) relString else "-"
-          typer.getOptRelInfo(relString, relEntities).map(relInfo => (relString, relInfo.toString))
-      }
-
-      val relArgPairs = regs flatMap typer.relationArgKv
-
-      // (relation, Singleton[RelInfo], Groups of REG w/ relation) 
-      // groups of relInfoPairs in the result are always singleton iterables, since there is only one relInfo per rel.
-      val relInfoRelArgsGrouped = Relational.coGroup(relInfoPairs, relArgPairs)
-
-      // (argument, RelInfo, arg string) pairs
-      val argRelInfoPairs: DList[(String, String)] = {
-        var numRelInfoPairs = 0
-        relInfoRelArgsGrouped.flatMap {
-          case (relString, (relInfoSingleton, relArgStrings)) =>
-            val relInfoStringOpt = relInfoSingleton.headOption
-            // attach relInfo to every argRelReg 
-            relInfoStringOpt match {
-              case Some(relInfoString) => {
-                relArgStrings.take(maxRelInfosWritePerArg).toSeq.distinct.map { argString =>
-                  numRelInfoPairs += 1
-                  if (numRelInfoPairs == 1 || numRelInfoPairs % 2000 == 0) System.err.println("num rel info pairs: %s".format(numRelInfoPairs))
-                  (argString, relInfoString)
-                }
-              }
-              case None => Iterable.empty
-            }
-        }
-      }
-      argRelInfoPairs
-    }
-    
-    def phaseTwo(argRelInfoPairs: DList[(String, String)]): DList[String] = {
-
-      val argRelInfosGrouped: DList[(String, Iterable[String])] = argRelInfoPairs.groupByKey
-
-      def getNotableRels(relInfos: Seq[RelInfo]): Seq[RelInfo] = {
-        val descending = relInfos.sortBy(-_.weight)
-        val best = descending.take(4)
-        val deduped = best.toSet.iterator.toSeq
-        val sorted = deduped.sortBy(-_.weight)
-        sorted
-      }
-
-      // (REG)
-      val typePredictionStrings = argRelInfosGrouped flatMap {
-        case (argString, relInfoStrings) =>
-          val relInfos = relInfoStrings flatMap RelInfo.fromString take (maxRelInfosReadPerArg) toSeq
-          def notableRels = if (keepRelString) getNotableRels(relInfos) map (ri => (ri.string, ri.weight)) else Seq.empty // debug, deleteme
-          val (topEntitiesForArg, totalEntityWeight) = typer.getTopEntitiesForArg(relInfos)
-          val predictedTypes = typer.predictTypes(topEntitiesForArg)
-          def typePrediction = TypePrediction(argString, predictedTypes, notableRels, totalEntityWeight, topEntitiesForArg.take(5).map(_.fbid))
-          if (predictedTypes.isEmpty) None else Some(typePrediction.toString)
-      }
-
-      typePredictionStrings
-    }
-
-    
     val input: DList[String] = TextInput.fromTextFile(inputPath)
-    
+
     val finalResult: DList[String] = {
       if (onlyPhaseOne) {
         this.configuration.jobNameIs("Unlinkable-Type-Prediction-PhaseOne-%s".format(argField.name))
-        val argRelInfoPairs = phaseOne(input)
+        val argRelInfoPairs = typer.phaseOne(input)
         argRelInfoPairs.map(pair => Seq(pair._1, pair._2).map(_.replaceAll("\t", "_TAB_")).mkString("\t"))
       } else if (onlyPhaseTwo) {
         // assume input is from phase one
@@ -383,13 +402,13 @@ object UnlinkableEntityTyper extends ScoobiApp {
           val split = tabSplit.split(line).take(2).map(_.replaceAll("_TAB_", "\t"))
           (split(0), split(1))
         }
-        phaseTwo(argRelInfoPairs)
+        typer.phaseTwo(argRelInfoPairs)
       } else {
         this.configuration.jobNameIs("Unlinkable-Type-Prediction-Full-%s".format(argField.name))
-        phaseTwo(phaseOne(input))
+        typer.phaseTwo(typer.phaseOne(input))
       }
     }
-    
+
     persist(toTextFile(finalResult, outputPath + "/"))
   }
 
@@ -404,7 +423,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
       }
     }
   }
-  
+
   private def dedupeSorted[T](input: Iterator[T]): Iterator[T] = {
 
     var last = Option.empty[T]
@@ -419,10 +438,11 @@ object UnlinkableEntityTyper extends ScoobiApp {
       }
     }
   }
+  // end object UnlinkableEntityTyper
 }
 
-case class MutInt(var count: Long) { 
-  def inc: Unit = { count += 1 } 
+case class MutInt(var count: Long) {
+  def inc: Unit = { count += 1 }
   def add(t: Long) = { count += t }
 }
 case object MutInt { def zero = MutInt(0) }

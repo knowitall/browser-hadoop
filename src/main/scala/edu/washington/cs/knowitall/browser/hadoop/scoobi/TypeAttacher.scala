@@ -4,18 +4,14 @@ import com.nicta.scoobi.Scoobi._
 import com.nicta.scoobi.lib.Relational
 import scopt.OptionParser
 import edu.washington.cs.knowitall.browser.util.StringSerializer
-import edu.washington.cs.knowitall.browser.extraction.ExtractionTuple
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.{ Arg1, Arg2, ArgField }
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.TypePrediction
 
 class TypeAttacher[T <: ExtractionTuple](
-    val argField: ArgField, 
-    val tuplePath: String, 
-    val argTypesPath: String, 
-    val outputPath: String,
+    val argField: ArgField,
     val serializer: StringSerializer[T]) {
 
-  def go(inputTuples: DList[String]): DList[String] = {
+  def go(inputTuples: DList[String], inputArgTypes: DList[String]): DList[String] = {
 
     def loadArgRegPair(str: String): Option[(String, String)] = serializer.deserializeFromString(str) map { reg => 
       val argNorm = argField.getArgNorm(reg)
@@ -30,7 +26,7 @@ class TypeAttacher[T <: ExtractionTuple](
     }
     // first step is to do a join to match REGs with their Option[TypePrediction]
     val argRegPairs: DList[(String, String)] = inputTuples flatMap loadArgRegPair
-    val argTypePredPairs = fromTextFile(argTypesPath) flatMap TypePrediction.fromString map argTypePair
+    val argTypePredPairs = inputArgTypes flatMap TypePrediction.fromString map argTypePair
 
     val leftJoined = Relational.joinLeft(argRegPairs, argTypePredPairs)
 
@@ -72,6 +68,8 @@ class TypeAttacher[T <: ExtractionTuple](
 
 object TypeAttacher extends ScoobiApp {
 
+  import edu.washington.cs.knowitall.browser.hadoop.util.RegWrapper
+  
   def run() = {
 
     var regsPath = ""
@@ -93,5 +91,16 @@ object TypeAttacher extends ScoobiApp {
     if (!parser.parse(args)) throw new IllegalArgumentException("Couldn't parse args")
 
     this.configuration.jobNameIs("Type-Prediction-Attacher-%s".format(argField.name))
+    
+    val attacher = new TypeAttacher(
+      argField=argField,
+      serializer=RegWrapper
+    )
+    
+    val inputTuples = fromTextFile(regsPath)
+    val inputArgTypes = fromTextFile(argTypesPath)
+    
+    val finalResult = attacher.go(inputTuples, inputArgTypes)
+    persist(toTextFile(finalResult, outRegsPath + "/"))
   }
 }
