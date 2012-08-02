@@ -37,10 +37,11 @@ case class TyperSettings(
   val maxRelInfosReadPerArg: Int = 20000,   // Read into memory at most this many RelInfos per argument 
   val maxArgsPerRelInfo: Int = 1000)  		// Duplicate each relInfo at most this many times
 
+// Wrapper superclass for input records to unlinkable typer.
 abstract class ExtractionTuple {
-  def arg1Norm: String
-  def arg1EntityId: Option[String]
-  def arg1Types: Set[String]
+  def arg1Norm: String              // string literal form
+  def arg1EntityId: Option[String]  // entity id string (not used, only isDefined/isEmpty)
+  def arg1Types: Set[String]        // freebase types, if entity present (e.g. "/location/location")
 
   def relNorm: String
 
@@ -48,7 +49,7 @@ abstract class ExtractionTuple {
   def arg2EntityId: Option[String]
   def arg2Types: Set[String]
 
-  def setArg1Types(newTypes: Set[String]): ExtractionTuple
+  def setArg1Types(newTypes: Set[String]): ExtractionTuple   // return a new instance with newTypes attached.
   def setArg2Types(newTypes: Set[String]): ExtractionTuple
 }
 
@@ -330,7 +331,9 @@ object UnlinkableEntityTyper extends ScoobiApp {
   val minArgLength = 4
   
   // Override this with your implementation of StringSerializer for your version of ExtractionTuple
-  protected def getStringSerializer: StringSerializer[_ <: ExtractionTuple] = RegWrapper
+  var serializer: StringSerializer[_ <: ExtractionTuple] = RegWrapper
+  
+  def setSerializer(newSerializer: StringSerializer[_ <: ExtractionTuple]) = { serializer = newSerializer }
   
   def run() = {
 
@@ -386,7 +389,7 @@ object UnlinkableEntityTyper extends ScoobiApp {
       maxRelInfosReadPerArg = maxRelInfosReadPerArg,
       maxArgsPerRelInfo = maxArgsPerRelInfo)
 
-    val typer = new UnlinkableEntityTyper(typerSettings, getStringSerializer)
+    val typer = new UnlinkableEntityTyper(typerSettings, serializer)
 
     val input: DList[String] = TextInput.fromTextFile(inputPath)
 

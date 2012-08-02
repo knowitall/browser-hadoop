@@ -70,6 +70,10 @@ object TypeAttacher extends ScoobiApp {
 
   import edu.washington.cs.knowitall.browser.hadoop.util.RegWrapper
   
+  var serializer: StringSerializer[_ <: ExtractionTuple] = RegWrapper
+  
+  def setSerializer(newSerializer: StringSerializer[_ <: ExtractionTuple]) = { serializer = newSerializer }
+  
   def run() = {
 
     var regsPath = ""
@@ -94,7 +98,7 @@ object TypeAttacher extends ScoobiApp {
     
     val attacher = new TypeAttacher(
       argField=argField,
-      serializer=RegWrapper
+      serializer=serializer
     )
     
     val inputTuples = fromTextFile(regsPath)
