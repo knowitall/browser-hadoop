@@ -20,7 +20,8 @@ class Ingester(
     val localDir: String, 
     val localDirHost: String, 
     val sshIdentityKeyFile: String,
-    val corpus: String) {
+    val corpus: String,
+    val verbose: Boolean = false) {
   
   import Ingester.printErr
   import ParallelReVerbIndexModifier.extrToSingletonGroup
@@ -57,6 +58,7 @@ class Ingester(
 
     val hdfsFiles: Set[String] = fullPathNames map stripPathAndExt toSet;
     printErr("%d files in hdfs directory".format(hdfsFiles.size))
+    if (verbose) hdfsFiles foreach printErr
     hdfsFiles
   }
   
@@ -66,6 +68,7 @@ class Ingester(
     printErr("Executing command: %s".format(cmd))
     val localFileMap: Map[String, File] = Process(cmd).lines map { fileName => (stripPathAndExt(fileName), new File(fileName)) } toMap;
     printErr("%d files in local directory".format(localFileMap.size));
+    if (verbose) localFileMap.iterator foreach { case (key, value) => printErr("%s -> %s".format(key, value)) }
     localFileMap
   }
   
@@ -142,6 +145,7 @@ object Ingester {
     var localDirHost: String = "" 
     var sshIdentityKeyFile: String = ""
     var corpus: String = ""
+    var verbose: Boolean = false
       
     val parser = new scopt.OptionParser() {
       arg("indexPaths", "Path to parallel lucene indexes, colon separated", { str => indexPaths = str.split(":") })
@@ -153,6 +157,7 @@ object Ingester {
       arg("corpus", "corpus identifier to attach to new data in the index", { corpus = _ })
       intOpt("ramBufferMb", "ramBuffer in MB per index", { ramBufferMb = _ })
       intOpt("linesPerCommit", "num lines between index commits", { linesPerCommit = _ })
+      opt("v", "verbose", { verbose = true })
     }
     
     if (!parser.parse(args)) return else printErr("Parsed args: %s".format(args.mkString(", ")))
@@ -170,7 +175,8 @@ object Ingester {
       localDir=localDir,
       localDirHost=localDirHost,
       sshIdentityKeyFile=sshIdentityKeyFile,
-      corpus=corpus
+      corpus=corpus,
+      verbose=verbose
     )
     
     val nsRuntime = Timing.time {
