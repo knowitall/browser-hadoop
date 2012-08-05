@@ -43,7 +43,9 @@ class Ingester(
   
   private def filesInHadoopDir: Set[String] = {
     
-    val fullPathNames = Process("%s dfs -ls %s".format(hadoopCmd, hadoopDir)).lines.flatMap { cmdOutputLine => 
+    val fullHadoopCmd = "%s dfs -ls %s".format(hadoopCmd, hadoopDir)
+    printErr("Executing command: %s".format(fullHadoopCmd))
+    val fullPathNames = Process(fullHadoopCmd).lines.flatMap { cmdOutputLine => 
       val split = whiteSpaceRegex.split(cmdOutputLine)
       split match {
         case Array(attrs, repl, owner, group, size, dateYmd, time, fullName, _*) => {
@@ -53,14 +55,18 @@ class Ingester(
       }
     }
 
-    fullPathNames map stripPathAndExt toSet
+    val hdfsFiles: Set[String] = fullPathNames map stripPathAndExt toSet;
+    printErr("%d files in hdfs directory".format(hdfsFiles.size))
+    hdfsFiles
   }
   
   private def filesInLocalDir: Map[String, File] = {
     
     val cmd = "%s -i %s %s ls -1 %s".format(sshCmd, sshIdentityKeyFile, localDirHost, localDir)
     printErr("Executing command: %s".format(cmd))
-    Process(cmd).lines map { fileName => (stripPathAndExt(fileName), new File(fileName)) } toMap
+    val localFileMap: Map[String, File] = Process(cmd).lines map { fileName => (stripPathAndExt(fileName), new File(fileName)) } toMap;
+    printErr("%d files in local directory".format(localFileMap.size));
+    localFileMap
   }
   
   private def filesNotInHadoop: Map[String, File] = filesInLocalDir -- filesInHadoopDir
