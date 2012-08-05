@@ -37,7 +37,7 @@ class Ingester(
   private val javaCmd = "/usr/bin/java"
   
   private def stripPathAndExt(fileName: String): String = {
-    val noPath = fileName.drop(fileName.lastIndexOf(File.separatorChar + 1))
+    val noPath = fileName.drop(fileName.lastIndexOf(File.separatorChar) + 1)
       val noExt = noPath.take(noPath.indexOf("""."""))
       noExt
   }
