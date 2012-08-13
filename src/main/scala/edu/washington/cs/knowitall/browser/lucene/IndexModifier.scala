@@ -6,6 +6,9 @@ import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 
+import org.apache.lucene.search.SearcherManager
+import org.apache.lucene.search.SearcherFactory
+
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.ScoobiEntityLinker
 
 import org.apache.lucene.search.IndexSearcher
@@ -33,8 +36,9 @@ class ReVerbIndexModifier(
     val writerBufferMb: Int, 
     val groupsPerCommit: Int) extends IndexModifier {
 
-  
-  def fetcher = new ExtractionGroupFetcher(new IndexSearcher(IndexReader.open(writer, true)), 1000, 1000, 10000, Set.empty[String])
+  val searcherManager = new SearcherManager(writer, true, new SearcherFactory())
+  val privateFetcher = new ExtractionGroupFetcher(searcherManager, 1000, 1000, 10000, Set.empty[String])
+  def fetcher = { searcherManager.maybeRefresh; privateFetcher }
   private val searcher = fetcher.indexSearcher
   private val reader = fetcher.indexSearcher.getIndexReader
   

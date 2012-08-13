@@ -8,6 +8,8 @@ import edu.washington.cs.knowitall.tool.stem.MorphaStemmer
 import org.apache.lucene.index.IndexReader
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search.IndexSearcher
+import org.apache.lucene.search.SearcherManager
+import org.apache.lucene.search.SearcherFactory
 import org.apache.lucene.store.RAMDirectory
 import org.junit.runner.RunWith
 import org.junit.Test
@@ -63,8 +65,10 @@ class ParallelReVerbIndexModifierTest extends Suite {
     var indexReaders = indexWriters map { IndexReader.open(_, true) }
     System.err.println("Finished building first half (%d), adding second half...".format(indexReaders map(_.maxDoc) sum))
     
-    var indexSearchers = indexReaders map(new IndexSearcher(_))
-    var simpleFetchers = indexSearchers map(searcher=>new ExtractionGroupFetcher(searcher, 10000, 10000, 100000, Set.empty[String]))
+    var simpleFetchers = indexWriters map { writer =>
+      val searcherManager = new SearcherManager(writer, true, new SearcherFactory())
+      new ExtractionGroupFetcher(searcherManager, 10000, 10000, 100000, Set.empty[String])
+    }
     var parFetcher = new ParallelExtractionGroupFetcher(simpleFetchers)
     
     testAll(parFetcher, firstHalfGroups)

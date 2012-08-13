@@ -4,6 +4,8 @@ import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.commonlib.ResourceUtils
+import org.apache.lucene.search.SearcherManager
+import org.apache.lucene.search.SearcherFactory
 import edu.washington.cs.knowitall.tool.stem.MorphaStemmer
 import org.apache.lucene.index.IndexReader
 import org.apache.lucene.index.IndexWriter
@@ -63,8 +65,8 @@ class ReVerbIndexModifierTest extends Suite {
     var indexReader = IndexReader.open(indexWriter, true)
     System.err.println("Finished building first half (%d), adding second half...".format(indexReader.maxDoc))
     
-    var indexSearcher = new IndexSearcher(indexReader)
-    var fetcher = new ExtractionGroupFetcher(indexSearcher, 10000, 10000, 100000, Set.empty[String])
+    val searcherManager = new SearcherManager(indexWriter, true, new SearcherFactory())
+    var fetcher = new ExtractionGroupFetcher(searcherManager, 10000, 10000, 100000, Set.empty[String])
     
     testAll(fetcher, firstHalfGroups)
     

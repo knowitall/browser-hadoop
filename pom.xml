@@ -63,7 +63,7 @@
 		<dependency>
 			<groupId>edu.washington.cs.knowitall</groupId>
 			<artifactId>openiedemo-backend</artifactId>
-			<version>1.0.1-SNAPSHOT</version>
+			<version>1.0.2-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>edu.washington.cs.knowitall</groupId>
@@ -177,7 +177,7 @@
 				<configuration>
 					<archive>
 						<manifest>
-							<mainClass>edu.washington.cs.knowitall.browser.hadoop.scoobi.UnlinkableEntityTyper</mainClass>
+							<mainClass>edu.washington.cs.knowitall.browser.hadoop.scoobi.TrivialMain</mainClass>
 						</manifest>
 					</archive>
 				</configuration>
