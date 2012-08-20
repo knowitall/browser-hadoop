@@ -129,13 +129,6 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
 }
 
 object ScoobiEntityLinker extends ScoobiApp {
-
-  val cachePort = 11211
-  
-  val cacheNodes = {
-    val localhost = java.net.InetAddress.getLocalHost.getHostName
-    Seq(new InetSocketAddress(localhost, cachePort)) 
-  }
                           
   private val min_arg_length = 3
   val linkersLocal = new mutable.HashMap[Thread, ScoobiEntityLinker] with mutable.SynchronizedMap[Thread, ScoobiEntityLinker]
