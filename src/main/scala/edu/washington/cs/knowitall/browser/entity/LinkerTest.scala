@@ -15,28 +15,32 @@ class LinkerTest {
     var newLinks: Int,
     var lostLinks: Int) {
     
-    val changeEvidence = new mutable.HashSet[(FreeBaseEntity, FreeBaseEntity)]
-    val lostEvidence = new mutable.HashSet[FreeBaseEntity]
-    val newEvidence = new mutable.HashSet[FreeBaseEntity]
+    case class Link(val arg: String, val entity: FreeBaseEntity) {
+      override def toString = "(%s -> %s)".format(arg, entity.name)
+    }
+    
+    val changeEvidence = new mutable.HashSet[(Link, Link)]
+    val lostEvidence = new mutable.HashSet[Link]
+    val newEvidence = new mutable.HashSet[Link]
     
     def register(beforePart: ExtractionPart, afterPart: ExtractionPart): Unit = {
-      val bef = beforePart.entity.isDefined
-      val aft = afterPart.entity.isDefined
-      if (bef) beforeLinks += 1
-      if (aft) afterLinks += 1
-      if (!bef && aft) { newLinks += 1; newEvidence += afterPart.entity.get }
-      else if (bef && !aft) { lostLinks += 1; lostEvidence += beforePart.entity.get }
+      val bef = beforePart.entity.map(ent => Link(beforePart.norm, ent))
+      val aft = afterPart.entity.map(ent => Link(afterPart.norm, ent))
+      if (bef.isDefined) beforeLinks += 1
+      if (aft.isDefined) afterLinks += 1
+      if (!bef.isDefined && aft.isDefined) { newLinks += 1; newEvidence += aft.get }
+      else if (bef.isDefined && !aft.isDefined) { lostLinks += 1; lostEvidence += bef.get }
       
-      if (bef && aft && !beforePart.entity.get.fbid.equals(afterPart.entity.get.fbid)) {
+      if (bef.isDefined && aft.isDefined && !beforePart.entity.get.fbid.equals(afterPart.entity.get.fbid)) {
         changedLinks += 1
-        changeEvidence += ((beforePart.entity.get, afterPart.entity.get))
+        changeEvidence += ((bef.get, aft.get))
       }
     }
     
     def evidenceString: String = {
-      "NewLinks: %s\n".format(newEvidence.map(_.name)) +
-      "LostLinks: %s\n".format(lostEvidence.map(_.name)) +
-      "ChangeLinks: %s".format(changeEvidence.map(pair => "%s -> %s".format(pair._1.name, pair._2.name)))
+      "NewLinks: %s\n".format(newEvidence.map(_.toString)) +
+      "LostLinks: %s\n".format(lostEvidence.map(_.toString)) +
+      "ChangeLinks: %s".format(changeEvidence.map(pair => "%s ==> %s".format(pair._1.toString, pair._2.toString)))
     }
     
     override def toString: String = "Before: %d, After: %d, Changed: %d, New: %d, Lost: %d".format(beforeLinks, afterLinks, changedLinks, newLinks, lostLinks)

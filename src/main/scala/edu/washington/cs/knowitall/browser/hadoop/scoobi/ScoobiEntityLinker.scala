@@ -28,7 +28,7 @@ import edu.washington.cs.knowitall.browser.util.TaggedStemmer
 import edu.washington.cs.knowitall.browser.entity.TopCandidatesFinder
 import edu.washington.cs.knowitall.browser.entity.EntityLinker
 import edu.washington.cs.knowitall.browser.entity.Pair
-import edu.washington.cs.knowitall.browser.entity.Entity
+import edu.washington.cs.knowitall.browser.entity.EntityLink
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedArgumentExtraction
 
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
@@ -55,7 +55,7 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
   private var arg2sLinked = 0
   private var totalGroups = 0
   
-  def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Set[String]): Option[Entity] = {
+  def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Set[String]): Option[EntityLink] = {
 
     if (arg.length < min_arg_length) None
 
@@ -64,11 +64,11 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
     if (tryLink == null) None else Some(tryLink)
   }
   
-  def entityConversion(entity: Entity): (Option[FreeBaseEntity], Set[FreeBaseType]) = {
+  def entityConversion(link: EntityLink): (Option[FreeBaseEntity], Set[FreeBaseType]) = {
     
-    val fbEntity = FreeBaseEntity(entity.name, entity.fbid, entity.score, entity.inlinks)
+    val fbEntity = FreeBaseEntity(link.entity.name, link.entity.fbid, link.score, link.inlinks)
     
-    val fbTypes = entity.retrieveTypes flatMap FreeBaseType.parse toSet
+    val fbTypes = link.retrieveTypes flatMap FreeBaseType.parse toSet
     
     (Some(fbEntity), fbTypes)
   }
