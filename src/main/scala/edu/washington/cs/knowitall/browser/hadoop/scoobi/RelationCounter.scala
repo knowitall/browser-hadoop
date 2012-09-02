@@ -3,12 +3,17 @@ package edu.washington.cs.knowitall.browser.hadoop.scoobi
 import scopt.OptionParser
 import com.nicta.scoobi.Scoobi._
 import util.ExtractionSentenceRecord
+import edu.washington.cs.knowitall.tool.stem.MorphaStemmer
+import edu.washington.cs.knowitall.tool.postag.PostaggedToken
 
 /**
  * Produces a list of id, relation string, frequency in descending order of frequency.
  */
 object RelationCounter extends ScoobiApp {
 
+  private val stemmerLocal = new ThreadLocal[MorphaStemmer] { override def initialValue = new MorphaStemmer }
+  def stemmer = stemmerLocal.get
+  
   case class CountedRelation(val rel: String, val freq: Int) {
     override def toString = Seq(rel, freq).mkString("\t")
   }
@@ -44,7 +49,14 @@ object RelationCounter extends ScoobiApp {
   }
   
   def toRelationString(inputRecord: String): Option[String] = {
-    try { return Some(new ExtractionSentenceRecord(inputRecord).rel) } 
+    try { 
+      val esr = new ExtractionSentenceRecord(inputRecord)
+      val relTokens = esr.rel.split(" ")
+      val relPos = esr.relTag.split(" ")
+      val posTokens = relTokens.zip(relPos).map { case (tok, pos) => new PostaggedToken(pos, tok, 0) }
+      val stemmed = posTokens map stemmer.stemToken
+      Some(stemmed.map(_.lemma).mkString(" "))
+    } 
     catch { case e: Exception => { e.printStackTrace; None }}
   }
 }
