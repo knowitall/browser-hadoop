@@ -48,12 +48,16 @@ object RelationCounter extends ScoobiApp {
     persist(toTextFile(relationsCounted, outputPath + "/"))
   }
   
+  val badTokens = Set("a", "an", "the")
+  
+  def filterTokens(token: PostaggedToken) = !badTokens.contains(token.string)
+  
   def toRelationString(inputRecord: String): Option[String] = {
     try { 
       val esr = new ExtractionSentenceRecord(inputRecord)
       val relTokens = esr.rel.split(" ").map(_.toLowerCase)
       val relPos = esr.relTag.split(" ")
-      val posTokens = relTokens.zip(relPos).map { case (tok, pos) => new PostaggedToken(pos, tok, 0) }
+      val posTokens = relTokens.zip(relPos) map { case (tok, pos) => new PostaggedToken(pos, tok, 0) } filter filterTokens
       val stemmed = posTokens map stemmer.stemToken
       val result = stemmed.map(_.lemma).mkString(" ").trim
       if (result.isEmpty) None else Some(result)
