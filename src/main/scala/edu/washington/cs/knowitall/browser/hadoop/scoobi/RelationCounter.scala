@@ -14,8 +14,8 @@ object RelationCounter extends ScoobiApp {
   private val stemmerLocal = new ThreadLocal[MorphaStemmer] { override def initialValue = new MorphaStemmer }
   def stemmer = stemmerLocal.get
   
-  case class CountedRelation(val rel: String, val freq: Int) {
-    override def toString = Seq(freq, rel).mkString("\t")
+  case class CountedRelation(val rel: String, val postags: String, val freq: Int) {
+    override def toString = Seq(freq, rel, postags).mkString("\t")
   }
   
   def run(): Unit = {
@@ -43,7 +43,7 @@ object RelationCounter extends ScoobiApp {
     
     val relationsGrouped = relations.groupBy(identity)
 
-    val relationsCounted = relationsGrouped.map { case (rel, rels) => CountedRelation(rel, rels.size) } filter { _.freq >= minFrequency} map { _.toString }
+    val relationsCounted = relationsGrouped.map { case ((rel, postags), rels) => CountedRelation(rel, postags, rels.size) } filter { _.freq >= minFrequency} map { _.toString }
     
     persist(toTextFile(relationsCounted, outputPath + "/"))
   }
@@ -52,15 +52,17 @@ object RelationCounter extends ScoobiApp {
   
   def filterTokens(token: PostaggedToken) = !badTokens.contains(token.string)
   
-  def toRelationString(inputRecord: String): Option[String] = {
+  def toRelationString(inputRecord: String): Option[(String, String)] = {
     try { 
       val esr = new ExtractionSentenceRecord(inputRecord)
       val relTokens = esr.rel.split(" ").map(_.toLowerCase)
       val relPos = esr.relTag.split(" ")
       val posTokens = relTokens.zip(relPos) map { case (tok, pos) => new PostaggedToken(pos, tok, 0) } filter filterTokens
       val stemmed = posTokens map stemmer.stemToken
-      val result = stemmed.map(_.lemma).mkString(" ").trim
-      if (result.isEmpty) None else Some(result)
+      val result = stemmed.map(tok => (tok.lemma, tok.token.postag))
+      val rel = result.map(_._1).mkString(" ")
+      val postags = result.map(_._2).mkString(" ")
+      if (result.isEmpty) None else Some((rel, postags))
     } 
     catch { case e: Exception => { e.printStackTrace; None }}
   }
