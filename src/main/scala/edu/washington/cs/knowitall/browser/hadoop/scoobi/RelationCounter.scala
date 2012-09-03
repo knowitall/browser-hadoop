@@ -15,7 +15,7 @@ object RelationCounter extends ScoobiApp {
   def stemmer = stemmerLocal.get
   
   case class CountedRelation(val rel: String, val freq: Int) {
-    override def toString = Seq(rel, freq).mkString("\t")
+    override def toString = Seq(freq, rel).mkString("\t")
   }
   
   def run(): Unit = {
@@ -51,11 +51,12 @@ object RelationCounter extends ScoobiApp {
   def toRelationString(inputRecord: String): Option[String] = {
     try { 
       val esr = new ExtractionSentenceRecord(inputRecord)
-      val relTokens = esr.rel.split(" ")
+      val relTokens = esr.rel.split(" ").map(_.toLowerCase)
       val relPos = esr.relTag.split(" ")
       val posTokens = relTokens.zip(relPos).map { case (tok, pos) => new PostaggedToken(pos, tok, 0) }
       val stemmed = posTokens map stemmer.stemToken
-      Some(stemmed.map(_.lemma).mkString(" "))
+      val result = stemmed.map(_.lemma).mkString(" ").trim
+      if (result.isEmpty) None else Some(result)
     } 
     catch { case e: Exception => { e.printStackTrace; None }}
   }
