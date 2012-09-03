@@ -41,9 +41,12 @@ object RelationCounter extends ScoobiApp {
     
     val relations = input flatMap toRelationString
     
-    val relationsGrouped = relations.groupBy(identity)
+    val relationsGrouped = relations.groupByKey
 
-    val relationsCounted = relationsGrouped.map { case ((rel, postags), rels) => CountedRelation(rel, postags, rels.size) } filter { _.freq >= minFrequency} map { _.toString }
+    val relationsCounted = relationsGrouped.map { case (rel, postags) => 
+      val postag = postags.head
+      CountedRelation(rel, postag, postags.size) 
+    } filter { _.freq >= minFrequency} map { _.toString }
     
     persist(toTextFile(relationsCounted, outputPath + "/"))
   }
