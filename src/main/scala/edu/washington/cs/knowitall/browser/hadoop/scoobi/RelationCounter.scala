@@ -55,8 +55,8 @@ object RelationCounter extends ScoobiApp {
   def toRelationString(inputRecord: String): Option[(String, String)] = {
     try { 
       val esr = new ExtractionSentenceRecord(inputRecord)
-      val relTokens = esr.rel.split(" ").map(_.toLowerCase)
-      val relPos = esr.relTag.split(" ")
+      val relTokens = esr.norm1Rel.split(" ").map(_.toLowerCase)
+      val relPos = esr.norm1RelPosTags.split(" ")
       val posTokens = relTokens.zip(relPos) map { case (tok, pos) => new PostaggedToken(pos, tok, 0) } filter filterTokens
       val stemmed = posTokens map stemmer.stemToken
       val result = stemmed.map(tok => (tok.lemma, tok.token.postag))
