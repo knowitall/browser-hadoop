@@ -61,7 +61,7 @@ object RelationCounter extends ScoobiApp {
     
     val grouped = relations.groupByKey
 
-    val tabulated = grouped map tabulateGroup
+    val tabulated = grouped map tabulateGroup(minFrequency)
     
     persist(toTextFile(tabulated, outputPath + "/"))
   }
@@ -75,11 +75,11 @@ object RelationCounter extends ScoobiApp {
   }
   
   // returns (Relation.doubleString, most frequent arg1s, most frequent arg2s)
-  def tabulateGroup(group: (String, Iterable[(String, String)])): String = group match { case (relString, argStrings) =>
+  def tabulateGroup(minFrequency: Int)(group: (String, Iterable[(String, String)])): Option[String] = group match { case (relString, argStrings) =>
     val arg1Counts = new mutable.HashMap[String, MutableInt]
     val arg2Counts = new mutable.HashMap[String, MutableInt]
     
-    val rel = Relation.fromString(relString).get
+    val rel = Relation.fromString(relString).getOrElse { return None }
     var size = 0
     
     argStrings.iterator.foreach { case (arg1, arg2) =>
@@ -92,8 +92,12 @@ object RelationCounter extends ScoobiApp {
     def mostFrequent(counts: mutable.Map[String, MutableInt]): Seq[String] = {
       counts.iterator.filter({ case (string, mutFreq) => mutFreq.value > 1 }).toSeq.sortBy(-_._2.value).map(_._1).take(6)
     }
-    
-    Seq(size, rel.auxString, mostFrequent(arg1Counts).mkString(", "), mostFrequent(arg2Counts).mkString(", ")).mkString("\t")
+     
+    if (size < minFrequency) return None
+    else {
+      val result = Seq(size, rel.auxString, mostFrequent(arg1Counts).mkString(", "), mostFrequent(arg2Counts).mkString(", ")).mkString("\t")
+      Some(result)
+    }
   }
   
   // (Relation.toString, (arg1String, arg2String))
