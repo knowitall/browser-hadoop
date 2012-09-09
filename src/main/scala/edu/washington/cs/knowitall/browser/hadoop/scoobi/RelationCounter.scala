@@ -61,7 +61,7 @@ object RelationCounter extends ScoobiApp {
     
     val grouped = relations.groupByKey
 
-    val tabulated = grouped map tabulateGroup(minFrequency)
+    val tabulated = grouped flatMap tabulateGroup(minFrequency)
     
     persist(toTextFile(tabulated, outputPath + "/"))
   }
