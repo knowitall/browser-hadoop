@@ -71,7 +71,7 @@ object RelationCounter extends ScoobiApp {
   def filterTokens(token: PostaggedToken) = !badTokens.contains(token.string)
   
   def filterArgString(argString: String): Boolean = {
-    argString.length >= 2 && argString.length < 30
+    argString.length >= 2 && argString.length < 30 && !argString.equalsIgnoreCase("it")
   }
   
   // returns (Relation.doubleString, most frequent arg1s, most frequent arg2s)
@@ -107,7 +107,7 @@ object RelationCounter extends ScoobiApp {
       val relTokens = esr.norm1Rel.split(" ").map(_.toLowerCase)
       val relPos = esr.norm1RelPosTags.split(" ")
       val posTokens = relTokens.zip(relPos) map { case (tok, pos) => new PostaggedToken(pos, tok, 0) } filter filterTokens
-      if (posTokens.isEmpty) None else Some((Relation(posTokens).toString, (esr.arg1, esr.arg2)))
+      if (posTokens.isEmpty) None else Some((Relation(posTokens).toString, (esr.norm1Arg1.toLowerCase, esr.norm1Arg2.toLowerCase)))
     } 
     catch { case e: Exception => { e.printStackTrace; None }}
   }
