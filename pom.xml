@@ -21,16 +21,16 @@
 	<repositories>
 		<repository>
 			<id>knowitall</id>
-			<url>http://knowitall.cs.washington.edu/maven2</url>
+			<url>http://knowitall.cs.washington.edu/maven2/</url>
 		</repository>
 		<repository>
 			<id>knowitall-snapshot</id>
-			<url>http://knowitall.cs.washington.edu/maven2-snapshot</url>
+			<url>http://knowitall.cs.washington.edu/maven2-snapshot/</url>
 		</repository>
 		<repository>
 			<id>scala-tools.org</id>
 			<name>Scala-tools Maven2 Repository</name>
-			<url>http://scala-tools.org/repo-releases</url>
+			<url>http://scala-tools.org/repo-releases/</url>
 		</repository>
 		<repository>
 			<id>sonatype-snapshot</id>
