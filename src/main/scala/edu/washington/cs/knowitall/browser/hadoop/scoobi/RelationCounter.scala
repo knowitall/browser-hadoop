@@ -84,7 +84,7 @@ object RelationCounter extends ScoobiApp {
     
     argStrings.iterator.foreach { case (arg1, arg2) =>
       size += 1
-      val sizeOk = size < 200000
+      val sizeOk = size < 500000
       if (sizeOk && filterArgString(arg1)) arg1Counts.getOrElseUpdate(arg1, MutableInt(0)).inc
       if (sizeOk && filterArgString(arg2)) arg2Counts.getOrElseUpdate(arg2, MutableInt(0)).inc
     }
@@ -107,6 +107,7 @@ object RelationCounter extends ScoobiApp {
       val relTokens = esr.norm1Rel.split(" ").map(_.toLowerCase)
       val relPos = esr.norm1RelPosTags.split(" ")
       val posTokens = relTokens.zip(relPos) map { case (tok, pos) => new PostaggedToken(pos, tok, 0) } filter filterTokens
+      val stemTokens = posTokens map stemmer.stemToken map { lemma => new PostaggedToken(lemma.token.postag, lemma.lemma, 0) }
       if (posTokens.isEmpty) None else Some((Relation(posTokens).toString, (esr.norm1Arg1.toLowerCase, esr.norm1Arg2.toLowerCase)))
     } 
     catch { case e: Exception => { e.printStackTrace; None }}
