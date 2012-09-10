@@ -108,7 +108,7 @@ object RelationCounter extends ScoobiApp {
       val relPos = esr.norm1RelPosTags.split(" ")
       val posTokens = relTokens.zip(relPos) map { case (tok, pos) => new PostaggedToken(pos, tok, 0) } filter filterTokens
       val stemTokens = posTokens map stemmer.stemToken map { lemma => new PostaggedToken(lemma.token.postag, lemma.lemma, 0) }
-      if (posTokens.isEmpty) None else Some((Relation(posTokens).toString, (esr.norm1Arg1.toLowerCase, esr.norm1Arg2.toLowerCase)))
+      if (posTokens.isEmpty) None else Some((Relation(stemTokens).toString, (esr.norm1Arg1.toLowerCase, esr.norm1Arg2.toLowerCase)))
     } 
     catch { case e: Exception => { e.printStackTrace; None }}
   }
