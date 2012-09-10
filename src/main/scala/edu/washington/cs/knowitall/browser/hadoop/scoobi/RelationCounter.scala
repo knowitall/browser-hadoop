@@ -18,7 +18,9 @@ object RelationCounter extends ScoobiApp {
   
   case class Relation(val tokens: Seq[PostaggedToken]) {
     override def toString = tokens.map { token => "%s_%s".format(token.string, token.postag) }.mkString(" ")
-    def auxString: String = Seq(tokens.map(_.string).mkString(" "), tokens.map(_.postag).mkString(" ")).mkString("\t")
+    def tokenString: String = tokens.map(_.string).mkString(" ")
+    def postagString: String = tokens.map(_.postag).mkString(" ")
+    def auxString: String = Seq(tokenString, postagString).mkString("\t")
   }
   object Relation {
     def fromString(relString: String): Option[Relation] = {
@@ -75,16 +77,18 @@ object RelationCounter extends ScoobiApp {
   }
   
   // returns (Relation.doubleString, most frequent arg1s, most frequent arg2s)
-  def tabulateGroup(minFrequency: Int)(group: (String, Iterable[(String, String)])): Option[String] = group match { case (relString, argStrings) =>
+  def tabulateGroup(minFrequency: Int)(group: (String, Iterable[(String, String, String)])): Option[String] = group match { case (relTokens, infoStrings) =>
     val arg1Counts = new mutable.HashMap[String, MutableInt]
     val arg2Counts = new mutable.HashMap[String, MutableInt]
+    val relStringCounts = new mutable.HashMap[String, MutableInt]
     
-    val rel = Relation.fromString(relString).getOrElse { return None }
+    //val rel = Relation.fromString(relString).getOrElse { return None }
     var size = 0
     
-    argStrings.iterator.foreach { case (arg1, arg2) =>
+    infoStrings.iterator.foreach { case (relString, arg1, arg2) =>
       size += 1
       val sizeOk = size < 500000
+      if (sizeOk) relStringCounts.getOrElseUpdate(relString, MutableInt(0)).inc
       if (sizeOk && filterArgString(arg1)) arg1Counts.getOrElseUpdate(arg1, MutableInt(0)).inc
       if (sizeOk && filterArgString(arg2)) arg2Counts.getOrElseUpdate(arg2, MutableInt(0)).inc
     }
@@ -92,6 +96,8 @@ object RelationCounter extends ScoobiApp {
     def mostFrequent(counts: mutable.Map[String, MutableInt]): Seq[String] = {
       counts.iterator.filter({ case (string, mutFreq) => mutFreq.value > 1 }).toSeq.sortBy(-_._2.value).map(_._1).take(6)
     }
+    
+    val rel = mostFrequent(relStringCounts).headOption.flatMap(Relation.fromString _).getOrElse { return None }
      
     if (size < minFrequency) return None
     else {
@@ -100,15 +106,17 @@ object RelationCounter extends ScoobiApp {
     }
   }
   
-  // (Relation.toString, (arg1String, arg2String))
-  def toRelationArgs(inputRecord: String): Option[(String, (String, String))] = {
+  // (rel tokens, (rel.toString, arg1String, arg2String))
+  def toRelationArgs(inputRecord: String): Option[(String, (String, String, String))] = {
     try { 
       val esr = new ExtractionSentenceRecord(inputRecord)
       val relTokens = esr.norm1Rel.split(" ").map(_.toLowerCase)
       val relPos = esr.norm1RelPosTags.split(" ")
       val posTokens = relTokens.zip(relPos) map { case (tok, pos) => new PostaggedToken(pos, tok, 0) } filter filterTokens
       val stemTokens = posTokens map stemmer.stemToken map { lemma => new PostaggedToken(lemma.token.postag, lemma.lemma, 0) }
-      if (posTokens.isEmpty) None else Some((Relation(stemTokens).toString, (esr.norm1Arg1.toLowerCase, esr.norm1Arg2.toLowerCase)))
+      val rel = Relation(stemTokens)
+      if (posTokens.isEmpty) None 
+      else Some(rel.tokenString, (rel.toString, esr.norm1Arg1.toLowerCase, esr.norm1Arg2.toLowerCase))
     } 
     catch { case e: Exception => { e.printStackTrace; None }}
   }
