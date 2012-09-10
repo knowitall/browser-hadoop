@@ -133,17 +133,25 @@ object ParallelReVerbIndexModifier {
     
     val lines = Source.fromInputStream(System.in).getLines
     
+    var numLines = 0
+    var exceptions = 0
+    
     val groups = lines flatMap { 
+      numLines += 1
       ReVerbExtraction.deserializeFromString 
-    } map { extr =>
-      if (debug) printDebug(extr)
-      extrToSingletonGroup(corpus)(extr)
+    } flatMap { extr =>
+      try {
+        if (debug) printDebug(extr)
+        Some(extrToSingletonGroup(corpus)(extr))
+      } catch {
+        case e: Exception => { e.printStackTrace; exceptions += 1; None }
+      }
     }
     
     parModifier.updateAll(groups)
 
     parModifier.close
     
-    System.err.println("End of file - normal termination")
+    System.err.println("End of file - normal termination. %d of %d input records were skipped due to exceptions".format(exceptions, numLines))
   }
 }
