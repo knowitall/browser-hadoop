@@ -99,6 +99,12 @@ object ParallelReVerbIndexModifier {
       Set(confInstance))
   }
 
+  def printDebug(extr: ReVerbExtraction): Unit = {
+    
+    println("Adding Extraction: %s".format(extr.toString))
+    println("SentenceTokens: %s".format(extr.sentenceTokens.toString))
+  }
+  
   val tabSplitter = "\t".r
 
   val localLinker = new ThreadLocal[ScoobiEntityLinker]() { override def initialValue = ScoobiEntityLinker.getEntityLinker }
@@ -111,11 +117,13 @@ object ParallelReVerbIndexModifier {
     var indexPaths: Seq[String] = Nil
     var inputGroups = false
     var corpus = ""
+    var debug = false
 
     val optionParser = new OptionParser() {
       arg("indexPaths", "Colon-delimited list of paths to indexes", { str => indexPaths = str.split(":") })
       arg("corpus", "The corpus identifier to use, e.g. news", { str => corpus = str})
       opt("linesPerCommit", "Lines added across all indexes between commits", { str => linesPerCommit = str.toInt })
+      opt("debug", "produce debug output", { debug = true })
     }
 
     // bail if the args are bad
@@ -125,7 +133,12 @@ object ParallelReVerbIndexModifier {
     
     val lines = Source.fromInputStream(System.in).getLines
     
-    val groups = lines flatMap ReVerbExtraction.deserializeFromString map extrToSingletonGroup(corpus)
+    val groups = lines flatMap { 
+      ReVerbExtraction.deserializeFromString 
+    } map { extr =>
+      if (debug) printDebug(extr)
+      extrToSingletonGroup(corpus)(extr)
+    }
     
     parModifier.updateAll(groups)
 
