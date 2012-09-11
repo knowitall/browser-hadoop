@@ -37,7 +37,7 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
   
   private var largestGroup = 0
 
-  def getKeyValuePair(line: String): Option[(String, String)] = {
+  def getKeyValuePair(line: String): Option[(String, String)] = try {
 
     extrsProcessed += 1
     if (extrsProcessed % 20000 == 0) System.err.println("Extractions processed: %d".format(extrsProcessed))
@@ -52,6 +52,8 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
       }
       case None => None
     }
+  } catch {
+    case e: Exception => { e.printStackTrace; None }
   }
 
   def processGroup(key: String, rawExtrs: Iterable[String]): Option[ExtractionGroup[ReVerbExtraction]] = {
