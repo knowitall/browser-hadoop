@@ -43,11 +43,13 @@ object RelationCounter extends ScoobiApp {
     var inputPath = ""
     var outputPath = ""
     var minFrequency = 1
+    var maxArgStringsPerRel = 6
       
     val parser = new OptionParser() {
       arg("inputPath", "file input path, records delimited by newlines", { str => inputPath = str })
       arg("outputPath", "file output path, newlines again", { str => outputPath = str })
       intOpt("minFreq", "don't keep relations below this frequency", { num => minFrequency = num })
+      intOpt("maxArgs", "maximum top arg strings to show per rel", { num => maxArgStringsPerRel = num })
     }
     
     if (!parser.parse(args)) return
@@ -94,7 +96,7 @@ object RelationCounter extends ScoobiApp {
     }
     
     def mostFrequent(counts: mutable.Map[String, MutableInt]): Seq[String] = {
-      counts.iterator.filter({ case (string, mutFreq) => mutFreq.value > 1 }).toSeq.sortBy(-_._2.value).map(_._1).take(6)
+      counts.iterator.filter({ case (string, mutFreq) => mutFreq.value > 1 }).toSeq.sortBy(-_._2.value).map(_._1).take(maxArgStringsPerRel)
     }
     
     val rel = mostFrequent(relStringCounts).headOption.flatMap(Relation.fromString _).getOrElse { return None }
