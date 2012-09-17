@@ -38,12 +38,14 @@ object RelationCounter extends ScoobiApp {
     }
   }
   
+  var maxArgStringsPerRel = 6
+  
   def run(): Unit = {
 
     var inputPath = ""
     var outputPath = ""
     var minFrequency = 1
-    var maxArgStringsPerRel = 6
+    
       
     val parser = new OptionParser() {
       arg("inputPath", "file input path, records delimited by newlines", { str => inputPath = str })
