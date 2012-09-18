@@ -38,7 +38,7 @@ object RelationCounter extends ScoobiApp {
     }
   }
   
-  var maxArgStringsPerRel = 6
+  var maxArgStringsPerRel = 500
   
   def run(): Unit = {
 
