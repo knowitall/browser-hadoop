@@ -12,7 +12,15 @@ import RelationCounter.filterTokens
 
 object RelTupleTabulator extends ScoobiApp {
 
-  case class ArgContext(val arg1: String, val arg2: String)
+  case class ArgContext(val arg1: Seq[PostaggedToken], val arg2: Seq[PostaggedToken]) {
+    override def toString = {
+      val arg1Tokens = arg1.map(_.string).mkString(" ")
+      val arg1Postags = arg1.map(_.postag).mkString(" ")
+      val arg2Tokens = arg2.map(_.string).mkString(" ")
+      val arg2Postags = arg2.map(_.postag).mkString(" ")
+      Seq(arg1Tokens, arg1Postags, arg2Tokens, arg2Postags).mkString("\t")
+    }
+  }
   
   def run(): Unit = {
 
@@ -47,26 +55,37 @@ object RelTupleTabulator extends ScoobiApp {
     
     val outputStrings = filteredRelContexts.flatMap { case (rel, (empties, contexts)) =>
       contexts.take(100000).map { context => 
-        Seq(rel, context.arg1, context.arg2).mkString("\t")
+        Seq(rel, context.toString).mkString("\t")
       }  
     }
     
     persist(toTextFile(outputStrings, outputPath + "/"))
   }
   
+  def joinTokensAndPostags(tokens: String, postags: String): Seq[PostaggedToken] = {
+    tokens.split(" ").zip(postags.split(" ")).map { case (tok, pos) =>
+      new PostaggedToken(pos.toLowerCase, tok.toLowerCase, 0)
+    }
+  }
+  
+  def stemToken(token: PostaggedToken): PostaggedToken = {
+    val lemma = stemmer.stemToken(token)
+    new PostaggedToken(lemma.token.postag, lemma.lemma, 0)
+  }
   
   // (rel tokens, (rel.toString, arg1String, arg2String))
   def toTuple(inputRecord: String): Option[(String, ArgContext)] = {
     try { 
       val esr = new ExtractionSentenceRecord(inputRecord)
-      val relTokens = esr.norm1Rel.split(" ").map(_.toLowerCase)
-      val relPos = esr.norm1RelPosTags.split(" ")
-      val posTokens = relTokens.zip(relPos) map { case (tok, pos) => new PostaggedToken(pos, tok, 0) } filter filterTokens
-      val stemTokens = posTokens map stemmer.stemToken map { lemma => new PostaggedToken(lemma.token.postag, lemma.lemma, 0) }
-      val relString = stemTokens.map(_.string).mkString(" ")
-      if (posTokens.isEmpty) None 
-      else Some(relString, ArgContext(esr.norm1Arg1.toLowerCase, esr.norm1Arg2.toLowerCase))
+      val relTokens = joinTokensAndPostags(esr.norm1Rel, esr.norm1RelPosTags) filter filterTokens map stemToken
+      val relString = relTokens.map(_.string).mkString(" ")
+      if (relTokens.isEmpty) None 
+      else {
+        val arg1Tokens = joinTokensAndPostags(esr.norm1Arg1, esr.norm1Arg1PosTags) filter filterTokens map stemToken
+        val arg2Tokens = joinTokensAndPostags(esr.norm2Arg1, esr.norm2Arg1PosTags) filter filterTokens map stemToken
+        Some(relString, ArgContext(arg1Tokens, arg2Tokens))
+      }
     } 
-    catch { case e: Exception => { e.printStackTrace; None }}
+    catch { case e: Exception => { e.printStackTrace; None } }
   }
 }
