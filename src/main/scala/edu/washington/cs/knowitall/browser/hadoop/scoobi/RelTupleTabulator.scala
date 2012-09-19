@@ -22,6 +22,25 @@ object RelTupleTabulator extends ScoobiApp {
     }
   }
   
+  object ArgContext {
+    def fromString(str: String): Option[ArgContext] = {
+      str.split("\t") match {
+        case Array(arg1Tokens, arg1Postags, arg2Tokens, arg2Postags, _*) => {
+          val arg1 = joinTokensAndPostags(arg1Tokens, arg1Postags)
+          val arg2 = joinTokensAndPostags(arg2Tokens, arg2Postags)
+          Some(ArgContext(arg1, arg2))
+        }
+        case _ => None
+      }
+    }
+  }
+  
+    def joinTokensAndPostags(tokens: String, postags: String): Seq[PostaggedToken] = {
+    tokens.split(" ").zip(postags.split(" ")).map { case (tok, pos) =>
+      new PostaggedToken(pos.toLowerCase, tok.toLowerCase, 0)
+    }
+  }
+  
   def run(): Unit = {
 
     var inputPath = ""
@@ -62,19 +81,13 @@ object RelTupleTabulator extends ScoobiApp {
     persist(toTextFile(outputStrings, outputPath + "/"))
   }
   
-  def joinTokensAndPostags(tokens: String, postags: String): Seq[PostaggedToken] = {
-    tokens.split(" ").zip(postags.split(" ")).map { case (tok, pos) =>
-      new PostaggedToken(pos.toLowerCase, tok.toLowerCase, 0)
-    }
-  }
-  
   def stemToken(token: PostaggedToken): PostaggedToken = {
     val lemma = stemmer.stemToken(token)
     new PostaggedToken(lemma.token.postag, lemma.lemma, 0)
   }
   
   // (rel tokens, (rel.toString, arg1String, arg2String))
-  def toTuple(inputRecord: String): Option[(String, ArgContext)] = {
+  def toTuple(inputRecord: String): Option[(String, String)] = {
     try { 
       val esr = new ExtractionSentenceRecord(inputRecord)
       val relTokens = joinTokensAndPostags(esr.norm1Rel, esr.norm1RelPosTags) filter filterTokens map stemToken
@@ -83,7 +96,7 @@ object RelTupleTabulator extends ScoobiApp {
       else {
         val arg1Tokens = joinTokensAndPostags(esr.norm1Arg1, esr.norm1Arg1PosTags) filter filterTokens map stemToken
         val arg2Tokens = joinTokensAndPostags(esr.norm2Arg1, esr.norm2Arg1PosTags) filter filterTokens map stemToken
-        Some(relString, ArgContext(arg1Tokens, arg2Tokens))
+        Some(relString, ArgContext(arg1Tokens, arg2Tokens).toString)
       }
     } 
     catch { case e: Exception => { e.printStackTrace; None } }
