@@ -92,10 +92,10 @@ object RelTupleTabulator extends ScoobiApp {
       val esr = new ExtractionSentenceRecord(inputRecord)
       val relTokens = joinTokensAndPostags(esr.norm1Rel, esr.norm1RelPosTags) filter filterTokens map stemToken
       val relString = relTokens.map(_.string).mkString(" ")
-      if (relTokens.isEmpty) None 
+      if (relTokens.isEmpty || relString.startsWith("'")) None 
       else {
         val arg1Tokens = joinTokensAndPostags(esr.norm1Arg1, esr.norm1Arg1PosTags) filter filterTokens map stemToken
-        val arg2Tokens = joinTokensAndPostags(esr.norm2Arg1, esr.norm2Arg1PosTags) filter filterTokens map stemToken
+        val arg2Tokens = joinTokensAndPostags(esr.norm1Arg2, esr.norm1Arg2PosTags) filter filterTokens map stemToken
         Some(relString, ArgContext(arg1Tokens, arg2Tokens).toString)
       }
     } 
