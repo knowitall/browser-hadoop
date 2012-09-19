@@ -29,7 +29,7 @@ object RelTupleTabulator extends ScoobiApp {
     }
 
     if (!parser.parse(args)) return
-
+ 
     println("Parsed args: %s".format(args.mkString(" ")))
     
     val input: DList[String] = fromTextFile(inputPath)
@@ -38,20 +38,20 @@ object RelTupleTabulator extends ScoobiApp {
     
     val grouped = tuples.groupByKey
     
-    val freqFilteredRels = grouped.filter { case (rel, argContexts) =>
+    val freqFilteredRels = grouped.flatMap { case (rel, argContexts) =>
       val size = argContexts.size
-      size >= minFrequency && size <= maxFrequency
+      if (size >= minFrequency && size <= maxFrequency) Some((rel, "")) else None
     }
     
-    freqFilteredRels.groupBarrier
+    val filteredRelContexts = freqFilteredRels.join(grouped)
     
-    val outputTuples = freqFilteredRels.flatMap { case (rel, argContexts) =>
-      argContexts.map { context =>
-        Seq(context.arg1, rel, context.arg2).mkString("\t")  
-      }
+    val outputStrings = filteredRelContexts.flatMap { case (rel, (empties, contexts)) =>
+      contexts.map { context => 
+        Seq(rel, context.arg1, context.arg2).mkString("\t")
+      }  
     }
     
-    persist(toTextFile(outputTuples, outputPath + "/"))
+    persist(toTextFile(outputStrings, outputPath + "/"))
   }
   
   
