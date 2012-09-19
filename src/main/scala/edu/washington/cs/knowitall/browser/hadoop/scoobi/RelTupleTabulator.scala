@@ -46,7 +46,7 @@ object RelTupleTabulator extends ScoobiApp {
     val filteredRelContexts = freqFilteredRels.join(grouped)
     
     val outputStrings = filteredRelContexts.flatMap { case (rel, (empties, contexts)) =>
-      contexts.take(200000).map { context => 
+      contexts.take(100000).map { context => 
         Seq(rel, context.arg1, context.arg2).mkString("\t")
       }  
     }
