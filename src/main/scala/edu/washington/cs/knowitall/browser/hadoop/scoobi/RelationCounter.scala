@@ -59,8 +59,7 @@ object RelationCounter extends ScoobiApp {
     println("Parsed args: %s".format(args.mkString(" ")))
     println("inputPath=%s".format(inputPath))
     println("outputPath=%s".format(outputPath))
-    
-    // serialized ReVerbExtractions
+
     val input: DList[String] = fromTextFile(inputPath)
     
     val relations = input flatMap toRelationArgs
