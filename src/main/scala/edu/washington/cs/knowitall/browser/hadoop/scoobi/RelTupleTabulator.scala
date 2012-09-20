@@ -37,7 +37,7 @@ object RelTupleTabulator extends ScoobiApp {
   
     def joinTokensAndPostags(tokens: String, postags: String): Seq[PostaggedToken] = {
     tokens.split(" ").zip(postags.split(" ")).map { case (tok, pos) =>
-      new PostaggedToken(pos.toLowerCase, tok.toLowerCase, 0)
+      new PostaggedToken(pos, tok.toLowerCase, 0)
     }
   }
   
