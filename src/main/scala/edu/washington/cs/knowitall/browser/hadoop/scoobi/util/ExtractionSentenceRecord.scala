@@ -63,6 +63,7 @@ class ExtractionSentenceRecord(val docname:String,
     + record.dataString)
 
    *
+  def tagString = arg1Tag + "\t" + re
    * @param splits
    * @return
    */

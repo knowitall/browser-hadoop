@@ -4,6 +4,8 @@ import scala.collection.JavaConversions._
 
 import com.nicta.scoobi.Scoobi._
 
+import edu.washington.cs.knowitall.browser.extraction.ExtractionArgument
+import edu.washington.cs.knowitall.browser.extraction.ExtractionRelation
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.Instance
@@ -17,6 +19,7 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedArgumentExtraction
 import edu.washington.cs.knowitall.nlp.extraction.ChunkedBinaryExtraction
 import edu.washington.cs.knowitall.nlp.ChunkedSentence
+import edu.washington.cs.knowitall.tool.chunk.ChunkedToken
 
 object ScoobiGroupReGrouper extends ScoobiApp {
   
@@ -80,13 +83,15 @@ object ScoobiGroupReGrouper extends ScoobiApp {
 
   def groupMapProcessor(line: String): Option[ExtractionGroup[ReVerbExtraction]] = {
 
+    
+    
     // try to parse the line into a group
     val group = ReVerbExtractionGroup.deserializeFromString(line).getOrElse { return None }
 
     // go through and assign confs to any extractions without them
-    val confedInstances = group.instances.map { inst => if (inst.confidence < 0) tryAddConf(inst) else inst }
+    val confedInstances = group.instances.map { inst => if (inst.confidence < 0) tryAddConf(inst) else inst } map removeControlChars
 
-    val newGroup = new ExtractionGroup(group.arg1, group.rel, group.arg2, confedInstances)
+    val newGroup = new ExtractionGroup(removeCCsArg(group.arg1), removeCCsRel(group.rel), removeCCsArg(group.arg2), confedInstances)
 
     Some(newGroup)
   }
@@ -103,6 +108,19 @@ object ScoobiGroupReGrouper extends ScoobiApp {
     } catch {
       case e: Exception => { e.printStackTrace; System.err.println(cbe); System.err.println(inst); inst }
     }
+  }
+  
+  def removeCCs(str: String):String = str.replaceAll("\t"," ").replaceAll("[\\p{C}]","")
+  def removeCCsArg(arg: ExtractionArgument) = arg.copy(norm = removeCCs(arg.norm))
+  def removeCCsRel(rel: ExtractionRelation) = rel.copy(norm = removeCCs(rel.norm))
+  
+  def removeControlChars(inst: Instance[ReVerbExtraction]): Instance[ReVerbExtraction] = {
+    
+    val extr = inst.extraction
+    val convertedSentence = extr.sentenceTokens.map(tok => new ChunkedToken(tok.chunk, tok.postag, removeCCs(tok.string), tok.offset))
+    val convertedExtr = new ReVerbExtraction(convertedSentence, extr.arg1Interval, extr.relInterval, extr.arg2Interval, extr.sourceUrl)
+    
+    new Instance(convertedExtr, inst.corpus, inst.confidence)
   }
 
   def extrToCBE(extr: ReVerbExtraction): ChunkedBinaryExtraction = {
