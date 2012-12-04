@@ -15,31 +15,31 @@ import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.ScoobiEntityLinker
 
 class CommandLineLinker(val source: Source, val output: PrintStream) {
-    private val tabSplit = "\t".r
-  
+  private val tabSplit = "\t".r
+
   type REG = ExtractionGroup[ReVerbExtraction]
-  
+
   def linkData: Unit = {
-    
+
     def toGroups(line: String): Option[REG] = {
       ReVerbExtractionGroup.deserializeFromString(line)
     }
-    
+
     var groupsProcessed = 0
-    
-    val runtimeNanos = Timing.time { 
+
+    val runtimeNanos = Timing.time {
       val linker = ScoobiEntityLinker.getEntityLinker(1)
       // convert input lines to REGs
-      val groups = source.getLines flatMap(line=>{groupsProcessed += 1; toGroups(line)})
+      val groups = source.getLines flatMap (line => { groupsProcessed += 1; toGroups(line) })
       val linkedGroups = groups map linker.linkEntities(reuseLinks = false)
       val strings = linkedGroups map ReVerbExtractionGroup.serializeToString
-      strings foreach(output.println(_))
+      strings foreach (output.println(_))
     }
-    
+
     val runtimeString = Timing.Seconds.format(runtimeNanos)
     val groupsProcString = groupsProcessed.toString
-    val msecPerGroup = Timing.Milliseconds.format(runtimeNanos/groupsProcessed)
-    
+    val msecPerGroup = Timing.Milliseconds.format(runtimeNanos / groupsProcessed)
+
     System.err.println("Running time: %s sec, Groups processed: %s, %s msec/group".format(runtimeString, groupsProcString, msecPerGroup))
   }
 }

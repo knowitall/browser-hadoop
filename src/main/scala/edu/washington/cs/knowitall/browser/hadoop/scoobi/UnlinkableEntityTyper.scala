@@ -26,22 +26,22 @@ import scala.collection.mutable
 import scala.io.Source
 
 case class TyperSettings(
-  val argField: ArgField,					// which argument field? (arg1 or arg2)
-  val maxSimilarEntities: Int = 10,	        // predict types from the top k=maxSimilarEntities entities.
-  val maxPredictedTypes: Int = 5,			// predict no more than this many types
-  val minShareScore: Int = 6,				// predict types only when at least this many entities share that type
-  val minRelWeight: Double = 0.25,			// RelInfos (relations) with weight less than this are ignored.
-  val keepRelString: Boolean = false,		// Carry around the original relation string while predicting types? (only needed for debugging)
-  val maxEntitiesReadPerRel: Int = 5000,    // Read into memory at most this many entities per relation
-  val maxEntitiesWritePerRel: Int = 150,    // Write to intermediate output at most this many entities per relation (a uniform sample of entities read)
-  val maxRelInfosReadPerArg: Int = 20000,   // Read into memory at most this many RelInfos per argument 
-  val maxArgsPerRelInfo: Int = 1000)  		// Duplicate each relInfo at most this many times
+  val argField: ArgField, // which argument field? (arg1 or arg2)
+  val maxSimilarEntities: Int = 10, // predict types from the top k=maxSimilarEntities entities.
+  val maxPredictedTypes: Int = 5, // predict no more than this many types
+  val minShareScore: Int = 6, // predict types only when at least this many entities share that type
+  val minRelWeight: Double = 0.25, // RelInfos (relations) with weight less than this are ignored.
+  val keepRelString: Boolean = false, // Carry around the original relation string while predicting types? (only needed for debugging)
+  val maxEntitiesReadPerRel: Int = 5000, // Read into memory at most this many entities per relation
+  val maxEntitiesWritePerRel: Int = 150, // Write to intermediate output at most this many entities per relation (a uniform sample of entities read)
+  val maxRelInfosReadPerArg: Int = 20000, // Read into memory at most this many RelInfos per argument 
+  val maxArgsPerRelInfo: Int = 1000) // Duplicate each relInfo at most this many times
 
 // Wrapper superclass for input records to unlinkable typer.
 abstract class ExtractionTuple {
-  def arg1Norm: String              // string literal form
-  def arg1EntityId: Option[String]  // entity id string (not used, only isDefined/isEmpty)
-  def arg1Types: Set[String]        // freebase types, if entity present (e.g. "/location/location")
+  def arg1Norm: String // string literal form
+  def arg1EntityId: Option[String] // entity id string (not used, only isDefined/isEmpty)
+  def arg1Types: Set[String] // freebase types, if entity present (e.g. "/location/location")
 
   def relNorm: String
 
@@ -49,7 +49,7 @@ abstract class ExtractionTuple {
   def arg2EntityId: Option[String]
   def arg2Types: Set[String]
 
-  def setArg1Types(newTypes: Set[String]): ExtractionTuple   // return a new instance with newTypes attached.
+  def setArg1Types(newTypes: Set[String]): ExtractionTuple // return a new instance with newTypes attached.
   def setArg2Types(newTypes: Set[String]): ExtractionTuple
 }
 
@@ -329,12 +329,12 @@ object UnlinkableEntityTyper extends ScoobiApp {
   val tabSplit = "\t".r
 
   val minArgLength = 4
-  
+
   // Override this with your implementation of StringSerializer for your version of ExtractionTuple
   var serializer: StringSerializer[_ <: ExtractionTuple] = RegWrapper
-  
+
   def setSerializer(newSerializer: StringSerializer[_ <: ExtractionTuple]) = { serializer = newSerializer }
-  
+
   def run() = {
 
     var inputPath, outputPath = ""

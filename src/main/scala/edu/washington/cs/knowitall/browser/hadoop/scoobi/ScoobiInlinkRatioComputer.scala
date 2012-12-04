@@ -54,16 +54,17 @@ object ScoobiInlinkRatioComputer extends ScoobiApp {
 
     val argGrouped = argKeyValuePairs.groupByKey
 
-    val argsFinished = argGrouped.flatMap { case (key, extrGroups) =>
-      if (!key.equals(NO_ENTITY)) Some(processReducerGroup(processArg1, extrGroups)) else None
+    val argsFinished = argGrouped.flatMap {
+      case (key, extrGroups) =>
+        if (!key.equals(NO_ENTITY)) Some(processReducerGroup(processArg1, extrGroups)) else None
     }
 
     persist(TextOutput.toTextFile(argsFinished, outputPath + "/"));
   }
 
   /**
-   * Assumes all REGs are linked, don't call this if there isn't a link in given arg field.
-   */
+    * Assumes all REGs are linked, don't call this if there isn't a link in given arg field.
+    */
   def processReducerGroup(arg1: Boolean, rawExtrGroups: Iterable[String]): String = {
 
     val rawProcGroup = rawExtrGroups.head

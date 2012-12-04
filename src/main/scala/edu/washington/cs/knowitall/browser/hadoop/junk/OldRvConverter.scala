@@ -65,12 +65,12 @@ object OldRvConverter {
 
       output.flush
     }
-    
-   val secs = timeToRun / Seconds.divisor
-   val wait = settings.minSecs - secs
-   
-   if (wait > 0) Thread.sleep(wait)
-   
+
+    val secs = timeToRun / Seconds.divisor
+    val wait = settings.minSecs - secs
+
+    if (wait > 0) Thread.sleep(wait)
+
   }
 
   private val splitPattern = "\t".r
@@ -86,8 +86,8 @@ object OldRvConverter {
     def ranges = Seq(settings.arg1Col, settings.relCol, settings.arg2Col).map(split(_)).flatMap(rangeFromString(_))
 
     val sentence = tryParsingSentence(split(settings.sentCol))
-    
-    val sourceUrl = split(settings.urlDomCol)+split(settings.urlPathCol)
+
+    val sourceUrl = split(settings.urlDomCol) + split(settings.urlPathCol)
 
     if (!sentence.isDefined) return lineFailure
 
@@ -120,7 +120,7 @@ object OldRvConverter {
       case _ => { System.err.println("Couldn't parse range:" + str); None }
     }
   }
-  
+
   private def tryParsingSentence(str: String): Option[ChunkedSentence] = {
     try {
       Some(chunkedNlpParser.parseSentence(str))
@@ -128,25 +128,23 @@ object OldRvConverter {
       case e: Exception => { e.printStackTrace(); None }
     }
   }
-  
+
   implicit def rangeToInterval(range: Range): Interval = Interval.closed(range.getStart, range.getLastIndex)
 
   private def buildExtraction(arg1Range: Range, relRange: Range, arg2Range: Range, sentence: ChunkedSentence, sourceUrl: String): Option[ReVerbExtraction] = {
-   
-    
-   
+
     try {
       // verification
       sentence.getTokens(arg1Range)
       sentence.getTokens(relRange)
       sentence.getTokens(arg2Range)
-      val sentenceTokens =  ReVerbExtraction.chunkedTokensFromLayers(sentence.getTokens.toIndexedSeq, sentence.getPosTags.toIndexedSeq, sentence.getChunkTags.toIndexedSeq)
-      
+      val sentenceTokens = ReVerbExtraction.chunkedTokensFromLayers(sentence.getTokens.toIndexedSeq, sentence.getPosTags.toIndexedSeq, sentence.getChunkTags.toIndexedSeq)
+
       Some(new ReVerbExtraction(sentenceTokens.toIndexedSeq, arg1Range, relRange, arg2Range, sourceUrl))
-      
+
     } catch {
       case e: Exception => { e.printStackTrace(); None }
     }
-    
+
   }
 }

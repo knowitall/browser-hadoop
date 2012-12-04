@@ -9,8 +9,8 @@ import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.{ Arg1, Arg2, ArgF
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.TypePrediction
 
 class TypeAttacher[T <: ExtractionTuple](
-    val argField: ArgField,
-    val serializer: StringSerializer[T]) {
+  val argField: ArgField,
+  val serializer: StringSerializer[T]) {
 
   def go(inputTuples: DList[String], inputArgTypes: DList[String]): DList[String] = {
 
@@ -100,9 +100,8 @@ object TypeAttacher extends ScoobiApp {
     this.configuration.jobNameIs("Type-Prediction-Attacher-%s".format(argField.name))
 
     val attacher = new TypeAttacher(
-      argField=argField,
-      serializer=serializer
-    )
+      argField = argField,
+      serializer = serializer)
 
     val inputTuples = fromTextFile(regsPath)
     val inputArgTypes = fromTextFile(argTypesPath)

@@ -18,62 +18,61 @@ import org.scalatest.Suite
 import scala.Option.option2Iterable
 import scala.io.Source
 
-
 @RunWith(classOf[JUnitRunner])
 class ReVerbIndexModifierTest extends Suite {
 
   type REG = ExtractionGroup[ReVerbExtraction]
-  
+
   val numGroupsToTest = 1000
 
   val rawInputLines: List[String] = Source.fromInputStream(ResourceUtils.loadResource("test-groups-5000.txt", this.getClass()), "UTF-8").getLines.drop(1000).take(numGroupsToTest).toList
 
-  val inputLines =  rawInputLines flatMap lineToOptGroup flatMap(_.reNormalize) map ReVerbExtractionGroup.serializeToString
-  
+  val inputLines = rawInputLines flatMap lineToOptGroup flatMap (_.reNormalize) map ReVerbExtractionGroup.serializeToString
+
   private def lineToOptGroup(e: String) = ReVerbExtractionGroup.deserializeFromString(e)
 
   val stemmer = new MorphaStemmer
-  
+
   @Test
   def testModifyIndex: Unit = {
-    
+
     val ramDir = new RAMDirectory()
 
-    var indexWriter = new IndexWriter(ramDir, ReVerbIndexBuilder.indexWriterConfig(ramBufferMB=10))
-    
-    val indexBuilder = new IndexBuilder(indexWriter, ReVerbIndexBuilder.inputLineConverter(regroup=false), 100)
+    var indexWriter = new IndexWriter(ramDir, ReVerbIndexBuilder.indexWriterConfig(ramBufferMB = 10))
 
-    val eachHalfSize = numGroupsToTest/2
-    
+    val indexBuilder = new IndexBuilder(indexWriter, ReVerbIndexBuilder.inputLineConverter(regroup = false), 100)
+
+    val eachHalfSize = numGroupsToTest / 2
+
     println("Halfsize: %d".format(eachHalfSize))
-    
+
     val randomizedLines = inputLines //scala.util.Random.shuffle(inputLines)
     val firstHalfLines = randomizedLines.take(eachHalfSize)
-    val secondHalfLines  = randomizedLines.drop(eachHalfSize)
-    
+    val secondHalfLines = randomizedLines.drop(eachHalfSize)
+
     firstHalfLines foreach println
     println
     secondHalfLines foreach println
-    
+
     val firstHalfGroups = firstHalfLines flatMap lineToOptGroup
     val secondHalfGroups = secondHalfLines flatMap lineToOptGroup
-    
+
     System.err.println("Building first half of index:")
 
     // build the index
     indexBuilder.indexAll(firstHalfLines.iterator)
     var indexReader = IndexReader.open(indexWriter, true)
     System.err.println("Finished building first half (%d), adding second half...".format(indexReader.maxDoc))
-    
+
     val searcherManager = new SearcherManager(indexWriter, true, new SearcherFactory())
     var fetcher = new ExtractionGroupFetcher(searcherManager, 10000, 10000, 100000, Set.empty[String])
-    
+
     testAll(fetcher, firstHalfGroups)
-    
+
     val indexModifier = new ReVerbIndexModifier(indexWriter, None, 100, 100)
-    
+
     indexModifier.updateAll(secondHalfGroups.iterator)
-    
+
     testAll(indexModifier.fetcher, secondHalfGroups)
     testAll(indexModifier.fetcher, firstHalfGroups)
   }

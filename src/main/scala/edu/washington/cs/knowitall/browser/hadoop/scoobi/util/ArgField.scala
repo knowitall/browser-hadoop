@@ -13,7 +13,7 @@ sealed abstract class ArgField {
   def getTypeStrings[T <: ExtractionTuple](reg: T): Set[String]
   def attachTypes[T <: ExtractionTuple](reg: T, typeInts: Seq[Int]): T
   def loadEntityInfo[T <: ExtractionTuple](group: T): Option[EntityInfo]
-  
+
   // concrete members
   protected def fbTypeToString(fbType: FreeBaseType): String = "/%s/%s".format(fbType.domain, fbType.typ)
   protected def intToFbType(typeInt: Int): Option[String] = TypeInfoUtils.typeEnumMap.get(typeInt).map(_.typeString)

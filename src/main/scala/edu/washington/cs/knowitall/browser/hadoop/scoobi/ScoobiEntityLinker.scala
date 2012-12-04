@@ -139,7 +139,6 @@ object ScoobiEntityLinker extends ScoobiApp {
   // Indexes are on the /scratchX/ where X in {"", 2, 3, 4}, the method getScratch currently
   // decides how to pick one of the choices.
 
-
   /** Get a random scratch directory on an RV node. */
   def getScratch(num: Int)(pathAfterScratch: String): Seq[String] = {
 
@@ -189,7 +188,6 @@ object ScoobiEntityLinker extends ScoobiApp {
       }
     }
   }
-
 
   def frequencyFilter(groups: DList[String], minFreq: Int, maxFreq: Int, reportInterval: Int, skipLinking: Boolean): DList[String] = {
 

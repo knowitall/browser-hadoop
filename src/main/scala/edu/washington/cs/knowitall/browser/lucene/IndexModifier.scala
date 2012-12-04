@@ -15,33 +15,33 @@ import org.apache.lucene.search.IndexSearcher
 
 abstract class IndexModifier {
   type REG = ExtractionGroup[ReVerbExtraction]
-  
+
   def updateAll(groups: Iterator[ExtractionGroup[ReVerbExtraction]]): Unit
-  
+
   def fetcher: GroupFetcher
-  
+
   def close(): Unit
 }
 
 /**
- * Adds collections of unlinked ReVerb ExtractionGroups to an existing index,
- * such as an index created by IndexBuilder.
- * 
- * Command-line interface allows the user to skip linking for singleton groups
- * that do not join any new group in the index (this saves a lot of time)
- */
+  * Adds collections of unlinked ReVerb ExtractionGroups to an existing index,
+  * such as an index created by IndexBuilder.
+  *
+  * Command-line interface allows the user to skip linking for singleton groups
+  * that do not join any new group in the index (this saves a lot of time)
+  */
 class ReVerbIndexModifier(
-    val writer: IndexWriter, 
-    val linker: Option[ScoobiEntityLinker], 
-    val writerBufferMb: Int, 
-    val groupsPerCommit: Int) extends IndexModifier {
+  val writer: IndexWriter,
+  val linker: Option[ScoobiEntityLinker],
+  val writerBufferMb: Int,
+  val groupsPerCommit: Int) extends IndexModifier {
 
   val searcherManager = new SearcherManager(writer, true, new SearcherFactory())
   val privateFetcher = new ExtractionGroupFetcher(searcherManager, 1000, 1000, 10000, Set.empty[String])
   def fetcher = { searcherManager.maybeRefresh; privateFetcher }
   private val searcher = fetcher.indexSearcher
   private val reader = fetcher.indexSearcher.getIndexReader
-  
+
   /**
     * Updates group to the index. Returns true if the index was modified.
     * User can specify to only add if the group is already in the index
@@ -50,7 +50,7 @@ class ReVerbIndexModifier(
   protected[lucene] def updateGroup(group: REG, onlyIfAlreadyExists: Boolean): Boolean = {
 
     val querySpec = QuerySpec.identityQuery(group)
-    
+
     val queryGroups = fetcher.getGroups(querySpec) match {
       case Timeout(results, _) => throw new RuntimeException("Failed to add document due to timeout.")
       case Limited(results, _) => throw new RuntimeException("Index results were limited... this shouldn't happen!")
@@ -58,12 +58,12 @@ class ReVerbIndexModifier(
     }
 
     if (!onlyIfAlreadyExists || !queryGroups.isEmpty) {
-      
+
       // delete matching documents from the index
       writer.deleteDocuments(querySpec.luceneQuery)
 
       val newKey = group.instances.head.extraction.indexGroupingKey
-      
+
       // queryGroups contains a superset of what we want - group by key to find the ones we need to merge
       val keyedGroups = (group :: queryGroups).groupBy(_.instances.head.extraction.indexGroupingKey)
 
@@ -101,20 +101,20 @@ class ReVerbIndexModifier(
 
     writer.addDocument(document)
   }
-  
+
   def updateAll(groups: Iterator[REG]): Unit = {
-    
+
     var groupsProcessed = 0
-    
+
     groups.grouped(groupsPerCommit).foreach { groupOfGroups =>
       groupOfGroups.foreach(updateGroup(_, false))
       groupsProcessed += groupOfGroups.size
       writer.commit()
       System.err.println("Groups inserted: %d Index MaxDoc: %d".format(groupsProcessed, writer.maxDoc))
-      
+
     }
   }
-  
+
   def close(): Unit = {
     writer.close
   }
