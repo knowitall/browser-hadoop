@@ -1,5 +1,6 @@
 package edu.washington.cs.knowitall.browser.hadoop.scoobi
 
+import com.nicta.scoobi.core.WireFormat
 import com.nicta.scoobi.Scoobi._
 import com.nicta.scoobi.lib.Relational
 import scopt.OptionParser
@@ -13,9 +14,9 @@ class TypeAttacher[T <: ExtractionTuple](
 
   def go(inputTuples: DList[String], inputArgTypes: DList[String]): DList[String] = {
 
-    def loadArgRegPair(str: String): Option[(String, String)] = serializer.deserializeFromString(str) map { reg => 
+    def loadArgRegPair(str: String): Option[(String, String)] = serializer.deserializeFromString(str) map { reg =>
       val argNorm = argField.getArgNorm(reg)
-      // bust up arg groups that are too short anyways. This helps prevent huge groups in the reducer. 
+      // bust up arg groups that are too short anyways. This helps prevent huge groups in the reducer.
       val key = if (argNorm.length < UnlinkableEntityTyper.minArgLength) "%s%s".format(scala.util.Random.nextInt(100), argNorm) else argNorm
       (key, serializer.serializeToString(reg))
     }
@@ -26,7 +27,9 @@ class TypeAttacher[T <: ExtractionTuple](
     }
     // first step is to do a join to match REGs with their Option[TypePrediction]
     val argRegPairs: DList[(String, String)] = inputTuples flatMap loadArgRegPair
-    val argTypePredPairs = inputArgTypes flatMap TypePrediction.fromString map argTypePair
+    val argTypePredPairs = inputArgTypes.flatMap { t =>
+      TypePrediction.fromString(t).map(argTypePair)
+    }
 
     val leftJoined = Relational.joinLeft(argRegPairs, argTypePredPairs)
 
@@ -69,11 +72,11 @@ class TypeAttacher[T <: ExtractionTuple](
 object TypeAttacher extends ScoobiApp {
 
   import edu.washington.cs.knowitall.browser.hadoop.util.RegWrapper
-  
+
   var serializer: StringSerializer[_ <: ExtractionTuple] = RegWrapper
-  
+
   def setSerializer(newSerializer: StringSerializer[_ <: ExtractionTuple]) = { serializer = newSerializer }
-  
+
   def run() = {
 
     var regsPath = ""
@@ -95,15 +98,15 @@ object TypeAttacher extends ScoobiApp {
     if (!parser.parse(args)) throw new IllegalArgumentException("Couldn't parse args")
 
     this.configuration.jobNameIs("Type-Prediction-Attacher-%s".format(argField.name))
-    
+
     val attacher = new TypeAttacher(
       argField=argField,
       serializer=serializer
     )
-    
+
     val inputTuples = fromTextFile(regsPath)
     val inputArgTypes = fromTextFile(argTypesPath)
-    
+
     val finalResult = attacher.go(inputTuples, inputArgTypes)
     persist(toTextFile(finalResult, outRegsPath + "/"))
   }

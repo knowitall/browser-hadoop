@@ -31,10 +31,10 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
  * code is run in the reducer.
  */
 class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
- 
+
   private var extrsProcessed = 0
   private var groupsProcessed = 0
-  
+
   private var largestGroup = 0
 
   def getKeyValuePair(line: String): Option[(String, String)] = try {
@@ -59,7 +59,7 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
   def processGroup(key: String, rawExtrs: Iterable[String]): Option[ExtractionGroup[ReVerbExtraction]] = {
 
     val rawExtrsTruncated = rawExtrs.take(ScoobiReVerbGrouper.max_group_size)
-    
+
     groupsProcessed += 1
     if (groupsProcessed % 10000 == 0) System.err.println("Groups processed: %d, current key: %s, largest group: %d".format(groupsProcessed, key, largestGroup))
 
@@ -69,7 +69,7 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 
     val normKey = head.indexGroupingKeyString
     val normTuple = head.indexGroupingKey
-    
+
     require(normKey.equals(key))
 
     val sources = extrs.map(e => e.sentenceTokens.map(_.string).mkString(" "))
@@ -78,11 +78,11 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 
     val arg2Entity = None
 
-    // this line also computes confidences for each instance, in tryAddConf... 
+    // this line also computes confidences for each instance, in tryAddConf...
     val instances = extrs.map(e => ScoobiGroupReGrouper.tryAddConf(new Instance(e, corpus, -1.0))).toSet
 
     if (instances.size > largestGroup) largestGroup = instances.size
-    
+
     val newGroup = new ExtractionGroup(
       normTuple._1,
       normTuple._2,
@@ -101,7 +101,7 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 object ScoobiReVerbGrouper extends ScoobiApp {
 
   val max_group_size = 40000
-  
+
   var calls = 0L
   val grouperCache = new mutable.HashMap[Thread, ScoobiReVerbGrouper] with mutable.SynchronizedMap[Thread, ScoobiReVerbGrouper]
 
@@ -111,7 +111,7 @@ object ScoobiReVerbGrouper extends ScoobiApp {
     val keyValuePair: DList[(String, String)] = extrs.flatMap { line =>
       calls += 1
       if (calls % 10000 == 0) System.err.println("Grouper Cache size: " + grouperCache.size)
-      val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.threadLocalInstance, corpus))
+      val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.instance, corpus))
       grouper.getKeyValuePair(line)
     }
 
@@ -119,7 +119,7 @@ object ScoobiReVerbGrouper extends ScoobiApp {
       case (key, sources) =>
         calls += 1
         if (calls % 10000 == 0) System.err.println("Grouper Cache size: " + grouperCache.size)
-        val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.threadLocalInstance, corpus))
+        val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.instance, corpus))
         grouper.processGroup(key, sources) match {
 
           case Some(group) => Some(ReVerbExtractionGroup.serializeToString(group))

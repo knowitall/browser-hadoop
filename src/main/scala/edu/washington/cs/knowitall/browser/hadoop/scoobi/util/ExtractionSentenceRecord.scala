@@ -9,9 +9,8 @@ package edu.washington.cs.knowitall.browser.hadoop.scoobi.util
  */
 
 import scala.collection.JavaConversions._
-
 import java.io.{DataOutput, DataInput}
-import com.nicta.scoobi.WireFormat
+import com.nicta.scoobi.core.WireFormat
 
 
 class ExtractionSentenceRecord(val docname:String,
@@ -88,30 +87,30 @@ class ExtractionSentenceRecord(val docname:String,
   override def toString():String = {
 
      return docname + '\t' +
-     extractorType + '\t' + 
-     sentenceid.toString + '\t' +  
-     eid.toString + '\t' +  
-     url + '\t' + 
-     hashes + '\t' + 
-     confidence.toString + '\t' +  
-     arg1 + '\t' + 
-     rel + '\t' + 
-     arg2 + '\t' + 
-     norm1Arg1+ '\t' + 
-     norm1Rel+ '\t' + 
-     norm1Arg2+ '\t' + 
-     norm2Arg1+ '\t' + 
-     norm2Rel+ '\t' + 
-     norm2Arg2+ '\t' + 
-     norm1Arg1PosTags+ '\t' + 
-     norm1RelPosTags+ '\t' + 
-     norm1Arg2PosTags+ '\t' + 
-     norm2Arg1PosTags+ '\t' + 
-     norm2RelPosTags+ '\t' + 
-     norm2Arg2PosTags+ '\t' + 
-     arg1Tag+ '\t' + 
-     relTag+ '\t' + 
-     arg2Tag+ '\t' + 
+     extractorType + '\t' +
+     sentenceid.toString + '\t' +
+     eid.toString + '\t' +
+     url + '\t' +
+     hashes + '\t' +
+     confidence.toString + '\t' +
+     arg1 + '\t' +
+     rel + '\t' +
+     arg2 + '\t' +
+     norm1Arg1+ '\t' +
+     norm1Rel+ '\t' +
+     norm1Arg2+ '\t' +
+     norm2Arg1+ '\t' +
+     norm2Rel+ '\t' +
+     norm2Arg2+ '\t' +
+     norm1Arg1PosTags+ '\t' +
+     norm1RelPosTags+ '\t' +
+     norm1Arg2PosTags+ '\t' +
+     norm2Arg1PosTags+ '\t' +
+     norm2RelPosTags+ '\t' +
+     norm2Arg2PosTags+ '\t' +
+     arg1Tag+ '\t' +
+     relTag+ '\t' +
+     arg2Tag+ '\t' +
      dataString
   }
 
