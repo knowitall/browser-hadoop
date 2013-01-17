@@ -17,7 +17,6 @@ import edu.washington.cs.knowitall.browser.extraction.Instance
 import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.util.TaggedStemmer
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
-import edu.washington.cs.knowitall.browser.entity.TopCandidatesFinder
 import edu.washington.cs.knowitall.browser.entity.EntityLinker
 import edu.washington.cs.knowitall.browser.entity.Pair
 
@@ -97,12 +96,15 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
 
 }
 
-object ScoobiReVerbGrouper extends ScoobiApp {
+object ReVerbGrouperStaticVars {
+  val grouperCache = new mutable.HashMap[Thread, ScoobiReVerbGrouper] with mutable.SynchronizedMap[Thread, ScoobiReVerbGrouper]
+}
 
+object ScoobiReVerbGrouper extends ScoobiApp {
+  import ReVerbGrouperStaticVars._
   val max_group_size = 40000
 
   var calls = 0L
-  val grouperCache = new mutable.HashMap[Thread, ScoobiReVerbGrouper] with mutable.SynchronizedMap[Thread, ScoobiReVerbGrouper]
 
   /** extrs --> grouped by normalization key */
   def groupExtractions(extrs: DList[String], corpus: String): DList[String] = {
@@ -120,7 +122,6 @@ object ScoobiReVerbGrouper extends ScoobiApp {
         if (calls % 10000 == 0) System.err.println("Grouper Cache size: " + grouperCache.size)
         val grouper = grouperCache.getOrElseUpdate(Thread.currentThread, new ScoobiReVerbGrouper(TaggedStemmer.instance, corpus))
         grouper.processGroup(key, sources) match {
-
           case Some(group) => Some(ReVerbExtractionGroup.serializeToString(group))
           case None => None
         }

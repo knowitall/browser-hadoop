@@ -62,7 +62,7 @@
     <dependency>
       <groupId>edu.washington.cs.knowitall</groupId>
       <artifactId>browser-entitylinker</artifactId>
-      <version>0.0.1</version>
+      <version>0.0.3-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.scala-lang</groupId>
@@ -151,6 +151,16 @@
     </plugins>
     <pluginManagement>
       <plugins>
+        <plugin>
+          <artifactId>maven-assembly-plugin</artifactId>
+          <configuration>
+            <archive>
+              <manifest>
+                <mainClass>edu.washington.cs.knowitall.browser.hadoop.scoobi.ScoobiReVerbGrouper</mainClass>
+              </manifest>
+            </archive>
+          </configuration>
+        </plugin> 
         <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
         <plugin>
           <groupId>org.eclipse.m2e</groupId>
