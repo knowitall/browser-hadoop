@@ -25,7 +25,6 @@ import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.Instance
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.browser.util.TaggedStemmer
-import edu.washington.cs.knowitall.browser.entity.TopCandidatesFinder
 import edu.washington.cs.knowitall.browser.entity.EntityLinker
 import edu.washington.cs.knowitall.browser.entity.Pair
 import edu.washington.cs.knowitall.browser.entity.EntityLink
@@ -56,25 +55,19 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
   private var totalGroups = 0
 
   def getEntity(el: EntityLinker, arg: String, head: ReVerbExtraction, sources: Set[String]): Option[EntityLink] = {
-
     if (arg.length < min_arg_length) None
-
     val tryLink = el.getBestEntity(arg, sources.toSeq)
-
     if (tryLink == null) None else Some(tryLink)
   }
 
   def entityConversion(link: EntityLink): (Option[FreeBaseEntity], Set[FreeBaseType]) = {
-
     val fbEntity = FreeBaseEntity(link.entity.name, link.entity.fbid, link.score, link.inlinks)
-
     val fbTypes = link.retrieveTypes flatMap FreeBaseType.parse toSet
-
+      
     (Some(fbEntity), fbTypes)
   }
 
   def linkEntities(reuseLinks: Boolean)(group: ExtractionGroup[ReVerbExtraction]): ExtractionGroup[ReVerbExtraction] = {
-
     // a hack for the thread problem
     if (groupsProcessed == 0) {
       val keys = Thread.getAllStackTraces.keySet
@@ -128,37 +121,35 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
   }
 }
 
-object ScoobiEntityLinker extends ScoobiApp {
-
-  private val min_arg_length = 3
+object EntityLinkerStaticVars {
   val linkersLocal = new mutable.HashMap[Thread, ScoobiEntityLinker] with mutable.SynchronizedMap[Thread, ScoobiEntityLinker]
+  case class Counter(var count: Int) { def inc(): Unit = { count += 1 } }
+  val counterLocal = new ThreadLocal[Counter]() { override def initialValue = Counter(0) }
+}
+
+object ScoobiEntityLinker extends ScoobiApp {
+  import EntityLinkerStaticVars._
+  private val min_arg_length = 3
 
   val random = new scala.util.Random
 
   // hardcoded for the rv cluster - the location of Tom's freebase context similarity index.
   // Indexes are on the /scratchX/ where X in {"", 2, 3, 4}, the method getScratch currently
   // decides how to pick one of the choices.
-
   /** Get a random scratch directory on an RV node. */
-  def getScratch(num: Int)(pathAfterScratch: String): Seq[String] = {
-
+  def getScratch(num: Int): Seq[String] = {
     for (i <- 1 to num) yield {
       val numStr = if (i == 1) "" else i.toString
-      "/scratch%s/".format(numStr) + pathAfterScratch
+      "/scratch%s/".format(numStr)
     }
   }
-
-  val baseIndex = "browser-freebase/"
-
-  case class Counter(var count: Int) { def inc(): Unit = { count += 1 } }
-  val counterLocal = new ThreadLocal[Counter]() { override def initialValue = Counter(0) }
 
   def getRandomElement[T](seq: Seq[T]): T = seq(Random.nextInt(seq.size))
 
   def getEntityLinker: ScoobiEntityLinker = getEntityLinker(4)
 
   def getEntityLinker(num: Int): ScoobiEntityLinker = {
-    val el = getScratch(num)(baseIndex).map(index => new EntityLinker(index)) // java doesn't have Option
+    val el = getScratch(num).map(index => new EntityLinker(index)) // java doesn't have Option
     new ScoobiEntityLinker(el, TaggedStemmer.instance)
   }
 
@@ -179,7 +170,7 @@ object ScoobiEntityLinker extends ScoobiApp {
       extrOp match {
         case Some(extr) => {
           if (extr.instances.size <= maxFreq && extr.instances.size >= minFreq) {
-            Some(ReVerbExtractionGroup.serializeToString(linker.linkEntities(reuseLinks = true)(extr)))
+            Some(ReVerbExtractionGroup.serializeToString(linker.linkEntities(reuseLinks = false)(extr)))
           } else {
             None
           }
@@ -234,7 +225,6 @@ object ScoobiEntityLinker extends ScoobiApp {
     }
 
     if (parser.parse(args)) {
-
       val lines: DList[String] = TextInput.fromTextFile(inputPath)
       val linkedGroups: DList[String] = linkGroups(lines, minFreq, maxFreq, reportInterval, skipLinking)
 

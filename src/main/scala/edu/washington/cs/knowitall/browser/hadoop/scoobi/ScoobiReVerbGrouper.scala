@@ -54,9 +54,9 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
     case e: Exception => { e.printStackTrace; None }
   }
 
-  def processGroup(key: String, rawExtrs: Iterable[String]): Option[ExtractionGroup[ReVerbExtraction]] = {
+  def processGroup(key: String, rawExtrs: Iterable[String]): Option[ExtractionGroup[ReVerbExtraction]] = try {
 
-    val rawExtrsTruncated = rawExtrs.take(ScoobiReVerbGrouper.max_group_size)
+    val rawExtrsTruncated = rawExtrs.take(ReVerbGrouperStaticVars.max_group_size)
 
     groupsProcessed += 1
     if (groupsProcessed % 10000 == 0) System.err.println("Groups processed: %d, current key: %s, largest group: %d".format(groupsProcessed, key, largestGroup))
@@ -92,17 +92,18 @@ class ScoobiReVerbGrouper(val stemmer: TaggedStemmer, val corpus: String) {
       instances)
 
     Some(newGroup)
+  } catch {
+    case e: Exception => {System.err.println("empty list!"); e.printStackTrace; None }
   }
-
 }
 
 object ReVerbGrouperStaticVars {
   val grouperCache = new mutable.HashMap[Thread, ScoobiReVerbGrouper] with mutable.SynchronizedMap[Thread, ScoobiReVerbGrouper]
+  val max_group_size = 40000
 }
 
 object ScoobiReVerbGrouper extends ScoobiApp {
   import ReVerbGrouperStaticVars._
-  val max_group_size = 40000
 
   var calls = 0L
 

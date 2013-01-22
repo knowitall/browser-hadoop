@@ -13,7 +13,6 @@ import edu.washington.cs.knowitall.common.Timing._
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
-import edu.washington.cs.knowitall.browser.entity.TopCandidatesFinder
 import edu.washington.cs.knowitall.browser.entity.EntityLinker
 import edu.washington.cs.knowitall.browser.entity.Pair
 

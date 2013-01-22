@@ -21,11 +21,14 @@ import edu.washington.cs.knowitall.nlp.extraction.ChunkedBinaryExtraction
 import edu.washington.cs.knowitall.nlp.ChunkedSentence
 import edu.washington.cs.knowitall.tool.chunk.ChunkedToken
 
-object ScoobiGroupReGrouper extends ScoobiApp {
-
+object GroupReGrouperStaticVars {
   val confLocal = new ThreadLocal[ReVerbOpenNlpConfFunction]() {
     override def initialValue = new ReVerbOpenNlpConfFunction()
   }
+}
+
+object ScoobiGroupReGrouper extends ScoobiApp {
+  import GroupReGrouperStaticVars._
 
   private var extrsProcessed = 0
 
@@ -65,7 +68,7 @@ object ScoobiGroupReGrouper extends ScoobiApp {
 
     val head = parsedGroups.find(group => group.arg1.hasEntity || group.arg2.hasEntity).getOrElse(parsedGroups.head)
 
-    val combinedGroup = new ExtractionGroup(head.arg1, head.rel, head.arg2, allInstances.take(ScoobiReVerbGrouper.max_group_size).toSet)
+    val combinedGroup = new ExtractionGroup(head.arg1, head.rel, head.arg2, allInstances.take(ReVerbGrouperStaticVars.max_group_size).toSet)
 
     groupsProcessed += parsedGroups.size
     if (groupsProcessed % 10000 == 0) System.err.println("Groups combined: %d".format(groupsProcessed))

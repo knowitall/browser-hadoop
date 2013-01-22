@@ -121,6 +121,11 @@
         </exclusion>
       </exclusions>
     </dependency>
+    <dependency>
+      <groupId>edu.washington.cs.knowitall</groupId>
+      <artifactId>morpha-stemmer</artifactId>
+      <version>1.0.4</version>
+    </dependency>
   </dependencies>
   <build>
     <sourceDirectory>src/main/scala</sourceDirectory>
@@ -156,7 +161,7 @@
           <configuration>
             <archive>
               <manifest>
-                <mainClass>edu.washington.cs.knowitall.browser.hadoop.scoobi.ScoobiReVerbGrouper</mainClass>
+                <mainClass>edu.washington.cs.knowitall.browser.hadoop.scoobi.ScoobiEntityLinker</mainClass>
               </manifest>
             </archive>
           </configuration>
