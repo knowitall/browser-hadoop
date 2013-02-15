@@ -28,11 +28,9 @@ object ScoobiHeadPhraseComparer extends ScoobiApp {
           val arg2String = firstExtraction.arg2Tokens.map(_.string).mkString(" ")
           val arg1Head = HeadPhraseFinder.getHeadPhrase(firstExtraction.arg1Tokens, cwHandler)
           val arg2Head = HeadPhraseFinder.getHeadPhrase(firstExtraction.arg2Tokens, cwHandler)
-          val arg1Head2 = HeadPhraseFinder.getHeadPhrase2(firstExtraction.arg1Tokens)
-          val arg2Head2 = HeadPhraseFinder.getHeadPhrase2(firstExtraction.arg2Tokens)
           List(
-            "%s\t%s\t%s".format(arg1String, arg1Head2, arg1Head),
-            "%s\t%s\t%s".format(arg2String, arg2Head2, arg2Head)
+            "%s\t%s".format(arg1String, arg1Head),
+            "%s\t%s".format(arg2String, arg2Head)
           )
         }
         case None => {
