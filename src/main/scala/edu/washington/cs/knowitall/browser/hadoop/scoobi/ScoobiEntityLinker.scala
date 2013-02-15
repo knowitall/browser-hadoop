@@ -1,37 +1,23 @@
 package edu.washington.cs.knowitall.browser.hadoop.scoobi
 
-import com.nicta.scoobi.Scoobi._
-//import com.nicta.scoobi.DList._
-//import com.nicta.scoobi.DList
-//import com.nicta.scoobi.io.text.TextInput._
-//import com.nicta.scoobi.io.text.TextInput
-//import com.nicta.scoobi.io.text.TextOutput._
-//import com.nicta.scoobi.io.text.TextOutput
-
-import java.net.InetSocketAddress
-
-import java.io.File
-import java.io.FileWriter
-
-import scala.util.Random
 import scala.collection.JavaConversions._
 import scala.collection.mutable
+import scala.util.Random
 
-import edu.washington.cs.knowitall.common.Timing._
-import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
+import com.nicta.scoobi.Scoobi._
+
+import edu.washington.cs.knowitall.browser.entity.CrosswikisCandidateFinder
+import edu.washington.cs.knowitall.browser.entity.EntityLink
+import edu.washington.cs.knowitall.browser.entity.EntityLinker
+import edu.washington.cs.knowitall.browser.entity.util.HeadPhraseFinder
+import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.FreeBaseEntity
 import edu.washington.cs.knowitall.browser.extraction.FreeBaseType
-import edu.washington.cs.knowitall.browser.extraction.ExtractionGroup
 import edu.washington.cs.knowitall.browser.extraction.Instance
+import edu.washington.cs.knowitall.browser.extraction.ReVerbExtraction
 import edu.washington.cs.knowitall.browser.extraction.ReVerbExtractionGroup
 import edu.washington.cs.knowitall.browser.util.TaggedStemmer
-import edu.washington.cs.knowitall.browser.entity.EntityLinker
-import edu.washington.cs.knowitall.browser.entity.Pair
-import edu.washington.cs.knowitall.browser.entity.EntityLink
-import edu.washington.cs.knowitall.nlp.extraction.ChunkedArgumentExtraction
-
-import edu.washington.cs.knowitall.nlp.extraction.ChunkedExtraction
-
+import edu.washington.cs.knowitall.common.Timing._
 import scopt.OptionParser
 
 /**
@@ -84,11 +70,17 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
     val sources = extrs.map(e => e.sentenceTokens.map(_.string).mkString(" "))
     // choose a random linker to distribute the load more evenly across the cluster
     val randomLinker = getRandomElement(subLinkers)
+    val cwHandler = randomLinker.candidateFinder match {
+      case cwCandidateFinder: CrosswikisCandidateFinder => cwCandidateFinder.getCrosswikisHandler();
+      case _ => null
+    }
 
     val (arg1Entity, arg1Types) = if (reuseLinks && group.arg1.entity.isDefined) {
       (group.arg1.entity, group.arg1.types)
     } else {
-      val entity = getEntity(randomLinker, head.arg1Head, head, sources) match {
+      
+      val arg1Head = HeadPhraseFinder.getHeadPhrase(head.arg1Tokens, cwHandler)
+      val entity = getEntity(randomLinker, arg1Head, head, sources) match {
         case Some(rawEntity) => { arg1sLinked += 1; entityConversion(rawEntity) }
         case None => (Option.empty[FreeBaseEntity], Set.empty[FreeBaseType])
       }
@@ -99,7 +91,8 @@ class ScoobiEntityLinker(val subLinkers: Seq[EntityLinker], val stemmer: TaggedS
     val (arg2Entity, arg2Types) = if (reuseLinks && group.arg2.entity.isDefined) {
       (group.arg2.entity, group.arg2.types)
     } else {
-      val entity = getEntity(randomLinker, head.arg2Head, head, sources) match {
+      val arg2Head = HeadPhraseFinder.getHeadPhrase(head.arg2Tokens, cwHandler)
+      val entity = getEntity(randomLinker, arg2Head, head, sources) match {
         case Some(rawEntity) => { arg2sLinked += 1; entityConversion(rawEntity) }
         case None => (Option.empty[FreeBaseEntity], Set.empty[FreeBaseType])
       }
